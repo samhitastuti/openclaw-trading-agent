@@ -1,0 +1,5 @@
+{
+  "name": "Veridict",
+  "description": "A decision verification layer for autonomous trading systems that evaluates intent before execution using Armoriq policy intelligence.",
+  "requestFramePermissions": []
+}
