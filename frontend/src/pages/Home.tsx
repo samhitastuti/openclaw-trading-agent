@@ -169,7 +169,15 @@ const Home = () => {
                     className="space-y-2"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold tracking-widest border border-emerald-500/20">ACTIVE</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest border ${
+                        result.status === 'ALLOWED'
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                          : result.status === 'BLOCKED'
+                          ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                          : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      }`}>
+                        {result.status === 'ALLOWED' ? 'ENFORCED' : result.status === 'BLOCKED' ? 'BLOCKED' : 'REVIEW'}
+                      </span>
                     </div>
                     {result.triggeredRules.length > 0 ? (
                       <div className="space-y-1">
