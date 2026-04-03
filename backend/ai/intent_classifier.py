@@ -314,13 +314,29 @@ RISK LEVELS:
                 logger.info("💰 Fallback qty found: None")
 
             # Fallback: extract ticker, skipping common action/preposition words
+            skipped_words: list[str] = []
+            found_ticker: str | None = None
             for m in re.finditer(r'\b([A-Z]{1,5})\b', user_input):
-                if m.group(1) not in _TICKER_SKIP_WORDS:
-                    result["extracted_data"]["ticker"] = m.group(1)
+                word = m.group(1)
+                if word in _TICKER_SKIP_WORDS:
+                    skipped_words.append(word)
+                else:
+                    found_ticker = word
+                    result["extracted_data"]["ticker"] = word
                     break
             logger.info(
                 f"🎯 Fallback ticker (before company mapping): {result['extracted_data'].get('ticker')}"
             )
+
+            if found_ticker:
+                logger.info(
+                    f"  → Fallback ticker search: Found ticker={found_ticker}"
+                    + (f", skipped {skipped_words}" if skipped_words else "")
+                )
+            else:
+                logger.info(
+                    f"  → Fallback ticker search: Found uppercase words but skipped {skipped_words}"
+                )
 
         # Company name → ticker fallback (e.g. "Apple" → "AAPL")
         if "ticker" not in result["extracted_data"]:
