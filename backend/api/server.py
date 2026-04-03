@@ -139,7 +139,7 @@ async def submit_trade(request: TradeRequest) -> TradeResponse:
             user=request.user_id or "api",
         )
 
-        status = "SUCCESS" if policy_decision.allowed else "BLOCKED"
+        status = "success" if policy_decision.allowed else "blocked"
         logger.info(f"{'✅' if policy_decision.allowed else '🚫'} Trade {status}: {policy_decision.reason}")
 
         return TradeResponse(
@@ -148,6 +148,7 @@ async def submit_trade(request: TradeRequest) -> TradeResponse:
             intent=parsed_intent.to_dict() if parsed_intent else None,
             ai_classification=classification.model_dump(),
             policy_decision=policy_decision.model_dump(),
+            reason=policy_decision.reason,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
