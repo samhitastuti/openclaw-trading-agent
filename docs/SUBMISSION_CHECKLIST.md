@@ -80,7 +80,7 @@ All required environment variables must be present in `.env.example` with placeh
 2. **(0:30 – 1:15)** Explain the 3-layer solution: Reason → Enforce → Execute. Show the architecture briefly.
 3. **(1:15 – 2:15)** Live demo: 1 allowed trade + 1 blocked threat + audit log.
 4. **(2:15 – 2:45)** Technical depth: YAML-driven policies, AI fallback, immutable audit trail.
-5. **(2:45 – 3:00)** Impact: 100 % block rate, compliance-ready, extensible.
+5. **(2:45 – 3:00)** Impact: 100% block rate, compliance-ready, extensible.
 
 ---
 

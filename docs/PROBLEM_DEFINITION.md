@@ -37,7 +37,7 @@ An instruction exceeds the order value limit: "Buy 10,000 shares of AAPL at $200
 
 | Pain Point | Evidence / Estimate |
 |---|---|
-| AI models hallucinate or misunderstand financial instructions | GPT-4 error rate on complex financial prompts: ~8–15 % without guardrails |
+| AI models hallucinate or misunderstand financial instructions | GPT-4 error rate on complex financial prompts: ~8–15% without guardrails |
 | No audit trail for AI trading decisions | Regulatory bodies (SEC, FINRA) require records for all algorithmic orders |
 | Hard-coded limits in application code are brittle and opaque | YAML-driven policies are auditable and updateable without code changes |
 | Prompt injection attacks on LLM-based agents are well-documented | OWASP LLM Top 10 #1: Prompt Injection |

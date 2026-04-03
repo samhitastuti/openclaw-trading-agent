@@ -34,10 +34,10 @@ max_order_value: 10000   # USD
 ### 3. Portfolio Exposure Limit (`exposure_limits.yaml`)
 
 ```yaml
-max_exposure_pct: 0.25   # 25 % of portfolio value per single position
+max_exposure_pct: 0.25   # 25% of portfolio value per single position
 ```
 
-- Adding the new position would exceed 25 % → **BLOCK**
+- Adding the new position would exceed 25% → **BLOCK**
 
 ### 4. Market Hours Gate (`time_restrictions.yaml`)
 
