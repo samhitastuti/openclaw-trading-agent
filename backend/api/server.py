@@ -327,6 +327,45 @@ async def get_blocked():
 
 
 # ===============================================
+# DEBUG ENDPOINT
+# ===============================================
+
+@app.get("/api/debug/classify")
+async def debug_classify(instruction: str):
+    """
+    Debug endpoint to verify the intent classifier is working correctly.
+
+    Example:
+        GET /api/debug/classify?instruction=Sell+10+Apple+stock
+
+    Response includes the full classification result with all extracted data
+    so you can confirm the backend is parsing instructions correctly regardless
+    of any frontend caching issues.
+    """
+    logger.info(f"🔎 Debug classify request: {instruction}")
+    classification = classifier.classify(instruction)
+    result = classification.model_dump()
+    result["input"] = instruction
+    # Promote extracted_data fields to the top level for easier reading
+    extracted = result.get("extracted_data") or {}
+    return {
+        "input": instruction,
+        "extracted_data": {
+            "action": extracted.get("action"),
+            "qty": extracted.get("qty"),
+            "ticker": extracted.get("ticker"),
+            "price": extracted.get("price"),
+        },
+        "intent": result.get("intent"),
+        "risk_level": result.get("risk_level"),
+        "confidence": result.get("confidence"),
+        "risk_factors": result.get("risk_factors", []),
+        "reasoning": result.get("reasoning"),
+        "ai_model": result.get("ai_model"),
+    }
+
+
+# ===============================================
 # FILE ACCESS TEST ENDPOINT
 # ===============================================
 
@@ -459,6 +498,7 @@ async def root():
             "positions": "/api/positions",
             "policy": "/api/policy",
             "audit": "/api/audit/decisions",
+            "debug": "/api/debug/classify?instruction=Sell+10+Apple+stock",
             "demos": [
                 "/api/demo/allowed-scenario",
                 "/api/demo/blocked-scenario-size",

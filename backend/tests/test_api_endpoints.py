@@ -311,6 +311,32 @@ async def test_demo_blocked_credential(client):
     assert "policy_decision" in body
 
 
+@pytest.mark.asyncio
+async def test_debug_classify_company_name(client):
+    """Debug classify endpoint resolves company name to ticker symbol."""
+    r = await client.get("/api/debug/classify", params={"instruction": "Sell 10 Apple stock"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["input"] == "Sell 10 Apple stock"
+    assert body["intent"] == "sell_stock"
+    extracted = body["extracted_data"]
+    assert extracted["ticker"] == "AAPL"
+    assert extracted["qty"] == 10.0
+    assert body["ai_model"] == "local_nlp"
+
+
+@pytest.mark.asyncio
+async def test_debug_classify_ticker_symbol(client):
+    """Debug classify endpoint extracts an explicit all-caps ticker symbol."""
+    r = await client.get("/api/debug/classify", params={"instruction": "Buy 50 AAPL"})
+    assert r.status_code == 200
+    body = r.json()
+    extracted = body["extracted_data"]
+    assert extracted["ticker"] == "AAPL"
+    assert extracted["qty"] == 50.0
+    assert body["intent"] == "buy_stock"
+
+
 # -----------------------------------------------------------------------
 # FileAccessController unit tests (synchronous – no ASGI needed)
 # -----------------------------------------------------------------------
