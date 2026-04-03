@@ -1,6 +1,6 @@
 // frontend/src/components/TradeSubmission.tsx
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { submitTrade, AIClassification, PolicyDecision } from '../api';
 
 interface TradeResult {
@@ -17,7 +17,7 @@ export function TradeSubmission() {
   const [result, setResult] = useState<TradeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
