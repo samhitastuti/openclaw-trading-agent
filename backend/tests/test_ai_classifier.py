@@ -88,4 +88,73 @@ def test_extract_data(classifier):
     assert data.get("qty") == 10.0
     assert data.get("price") == 250.0
     assert data.get("action") == "buy"
+
+
+# TICKER EXTRACTION ROBUSTNESS
+
+def test_buy_ticker_simple(classifier):
+    """Buy 50 AAPL – basic case must extract correct ticker, not action word"""
+    result = classifier.classify("Buy 50 AAPL")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    assert data.get("action") == "buy"
+    assert result["risk_level"] == "safe"
+    assert result["confidence"] >= 0.80
+    print("✅ Buy 50 AAPL test passed")
+
+
+def test_buy_ticker_all_caps_action(classifier):
+    """BUY 50 AAPL – all-caps action word must not be mistaken for ticker"""
+    result = classifier.classify("BUY 50 AAPL")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    print("✅ BUY 50 AAPL (all-caps action) test passed")
+
+
+def test_buy_ticker_lowercase(classifier):
+    """buy 50 aapl – lowercase input must still extract ticker"""
+    result = classifier.classify("buy 50 aapl")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    print("✅ buy 50 aapl (lowercase) test passed")
+
+
+def test_buy_shares_of_ticker(classifier):
+    """Buy 50 shares of AAPL – 'shares of' prefix handled correctly"""
+    result = classifier.classify("Buy 50 shares of AAPL")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    print("✅ Buy 50 shares of AAPL test passed")
+
+
+def test_buy_ticker_with_price(classifier):
+    """Buy 50 AAPL at 150 – price extracted alongside ticker and qty"""
+    result = classifier.classify("Buy 50 AAPL at 150")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    assert data.get("price") == 150.0
+    print("✅ Buy 50 AAPL at 150 test passed")
+
+
+def test_company_name_apple(classifier):
+    """Sell 10 Apple stock – company name 'Apple' maps to AAPL"""
+    result = classifier.classify("Sell 10 Apple stock")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 10.0
+    print("✅ Sell 10 Apple stock (company name) test passed")
+
+
+def test_company_name_microsoft(classifier):
+    """Buy 50 shares of Microsoft – company name maps to MSFT"""
+    result = classifier.classify("Buy 50 shares of Microsoft")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "MSFT"
+    assert data.get("qty") == 50.0
+    print("✅ Buy 50 shares of Microsoft (company name) test passed")
     print("✅ Data extraction test passed")
