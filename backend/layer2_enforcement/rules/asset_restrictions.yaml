@@ -1,0 +1,3 @@
+rules:
+  - name: example_rule
+    condition: 'quantity <= 10'
