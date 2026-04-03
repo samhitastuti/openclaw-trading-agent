@@ -24,11 +24,12 @@ export interface PolicyDecision {
 }
 
 export interface TradeResponse {
-  status: 'success' | 'blocked';
-  instruction: string;
-  ai_classification: AIClassification;
-  policy_decision: PolicyDecision;
-  timestamp: string;
+  status: 'success' | 'blocked' | 'SUCCESS' | 'BLOCKED' | 'PENDING' | 'ERROR' | string;
+  instruction?: string;
+  ai_classification?: AIClassification;
+  policy_decision?: PolicyDecision;
+  timestamp?: string;
+  reason?: string;
 }
 
 export async function submitTrade(instruction: string): Promise<TradeResponse> {

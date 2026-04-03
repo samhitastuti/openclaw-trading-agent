@@ -104,14 +104,18 @@ def trading_routes(agent: Optional[Any] = None) -> APIRouter:
                 result = await agent.run(request.instruction, request.user_id)
                 return TradeResponse(
                     status=result.status.upper(),
-                    intent=result.intent.to_dict() if result.intent else None,
-                    result=result.result,
+                    instruction=request.instruction,
+                    ai_classification=result.intent.to_dict() if result.intent else None,
+                    policy_decision=result.result if isinstance(result.result, dict) else None,  # result.result may be any type depending on agent implementation
                     reason=result.reason or None,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
             # Agent not yet wired up – return placeholder
             return TradeResponse(
                 status="PENDING",
+                instruction=request.instruction,
                 reason="Agent not yet implemented (waiting for Person 1)",
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
         except Exception as exc:
             logger.error("❌ Trade error: %s", exc)

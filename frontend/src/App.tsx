@@ -12,6 +12,7 @@ import Policies from './pages/Policies';
 import Logs from './pages/Logs';
 import Enterprise from './pages/Enterprise';
 import { TradeSubmission } from './components/TradeSubmission';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles/trade.css';
 
 export default function App() {
@@ -22,17 +23,19 @@ export default function App() {
           <WaveBackground />
           <Navbar />
           
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/wallet" element={<ConnectWallet />} />
-            <Route path="/product" element={<Product />} />
-            <Route path="/policies" element={<Policies />} />
-            <Route path="/logs" element={<Logs />} />
-            <Route path="/enterprise" element={<Enterprise />} />
-            <Route path="/trade" element={<TradeSubmission />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/wallet" element={<ConnectWallet />} />
+              <Route path="/product" element={<Product />} />
+              <Route path="/policies" element={<Policies />} />
+              <Route path="/logs" element={<Logs />} />
+              <Route path="/enterprise" element={<Enterprise />} />
+              <Route path="/trade" element={<TradeSubmission />} />
+            </Routes>
+          </ErrorBoundary>
         </div>
       </Router>
     </AppProvider>
