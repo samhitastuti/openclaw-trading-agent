@@ -11,6 +11,8 @@ import Product from './pages/Product';
 import Policies from './pages/Policies';
 import Logs from './pages/Logs';
 import Enterprise from './pages/Enterprise';
+import { TradeSubmission } from './components/TradeSubmission';
+import './styles/trade.css';
 
 export default function App() {
   return (
@@ -29,10 +31,10 @@ export default function App() {
             <Route path="/policies" element={<Policies />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/enterprise" element={<Enterprise />} />
+            <Route path="/trade" element={<TradeSubmission />} />
           </Routes>
         </div>
       </Router>
     </AppProvider>
   );
 }
-
