@@ -141,8 +141,6 @@ See [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) for full scripted walkthrough.
 | [`docs/SECURITY_CASES.md`](docs/SECURITY_CASES.md) | Security workflows & test cases |
 | [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | 90s / 3-min pitch scripts |
 | [`docs/SUBMISSION_CHECKLIST.md`](docs/SUBMISSION_CHECKLIST.md) | Pre-submission validation |
-| [`docs/PITCH_TEMPLATES.md`](docs/PITCH_TEMPLATES.md) | Pitch structure & judge criteria |
-| [`docs/MENTOR_QUESTIONS.md`](docs/MENTOR_QUESTIONS.md) | 10 mentor questions for design validation |
 | [`docs/API_READINESS.md`](docs/API_READINESS.md) | API quality checklist |
 | [`docs/SECURITY_CHECKS.md`](docs/SECURITY_CHECKS.md) | Security audit checklist |
 
@@ -150,8 +148,8 @@ See [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) for full scripted walkthrough.
 
 ## Team & Submission Links
 
-- **Team**: samhitastuti
+- **Team**: Claw & Order
 - **Repository**: https://github.com/samhitastuti/openclaw-trading-agent
-- **Submission video**: _[add link before submission]_
+- **Submission video**: https://drive.google.com/file/d/1CQGLKMmWAQ9uDJ8cxrLhcYqiPBX-yv04/view?usp=sharing
 - **Live demo**: _[add link before submission]_
 
