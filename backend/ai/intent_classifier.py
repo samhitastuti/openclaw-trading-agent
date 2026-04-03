@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 # Uppercase words to skip when falling back to a bare ticker search,
 # so that action verbs like "BUY" or "SELL" are never mistaken for tickers.
-_TICKER_SKIP_WORDS: set = {"BUY", "SELL", "AT", "FOR", "OF", "THE"}
+_TICKER_SKIP_WORDS: set[str] = {"BUY", "SELL", "AT", "FOR", "OF", "THE"}
 
 # Common company names → canonical ticker symbols.
 # Used when the user writes the full company name rather than the symbol.
-_COMPANY_TO_TICKER: dict = {
+_COMPANY_TO_TICKER: dict[str, str] = {
     "apple": "AAPL",
     "microsoft": "MSFT",
     "google": "GOOGL",
@@ -301,15 +301,10 @@ RISK LEVELS:
                 result["extracted_data"]["qty"] = float(qty_match.group(1))
 
             # Fallback: extract ticker, skipping common action/preposition words
-            search_start = 0
-            while search_start < len(user_input):
-                m = re.search(r'\b([A-Z]{1,5})\b', user_input[search_start:])
-                if not m:
-                    break
+            for m in re.finditer(r'\b([A-Z]{1,5})\b', user_input):
                 if m.group(1) not in _TICKER_SKIP_WORDS:
                     result["extracted_data"]["ticker"] = m.group(1)
                     break
-                search_start += m.end()
 
         # Company name → ticker fallback (e.g. "Apple" → "AAPL")
         if "ticker" not in result["extracted_data"]:
