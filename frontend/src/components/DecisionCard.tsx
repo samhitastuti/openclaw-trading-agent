@@ -44,7 +44,7 @@ const DecisionCard: React.FC<DecisionCardProps> = ({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ 
         opacity: 1, 
-        scale: status ? [1, 1.02, 1] : (isActive ? 1.05 : 1),
+        scale: status ? 1 : (isActive ? 1.05 : 1),
         boxShadow: status ? (
           status === 'ALLOWED' ? '0 0 30px rgba(16,185,129,0.2)' :
           status === 'WARNING' ? '0 0 30px rgba(245,158,11,0.2)' :
@@ -53,7 +53,6 @@ const DecisionCard: React.FC<DecisionCardProps> = ({
         transition: { 
           duration: 0.4, 
           ease: "easeOut",
-          scale: status ? { type: "spring", stiffness: 300, damping: 15 } : { duration: 0.4 }
         }
       }}
       className={`flex-1 p-6 rounded-3xl border-2 transition-all duration-500 card-shadow ${getStatusColor()} ${isActive ? 'z-10' : 'z-0'}`}
@@ -67,8 +66,8 @@ const DecisionCard: React.FC<DecisionCardProps> = ({
         </div>
         {isActive && (
           <motion.div 
-            animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.2, 1] }} 
-            transition={{ repeat: Infinity, duration: 1.5 }}
+            animate={{ opacity: [0.5, 1], scale: [1, 1.2] }} 
+            transition={{ repeat: Infinity, repeatType: "reverse", duration: 0.75 }}
             className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
           />
         )}
