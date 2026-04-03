@@ -1,4 +1,28 @@
-fastapi
-streamlit
-pydantic
-requests
+﻿# Web Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# Data Handling
+pydantic==2.4.2
+pydantic-settings==2.0.3
+
+# Alpaca Trading
+alpaca-trade-api==3.3.0
+
+# Environment
+python-dotenv==1.0.0
+
+# Async
+aiohttp==3.9.1
+
+# Logging
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.1
+
+# Development
+black==23.11.0
+flake8==6.1.0
