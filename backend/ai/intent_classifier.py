@@ -186,8 +186,9 @@ RISK LEVELS:
     
     def _classify_with_local_nlp(self, user_input: str) -> Dict[str, Any]:
         """Fast, deterministic classification using regex + keyword matching."""
-        
-        logger.info(f"🔍 Local NLP classification: {user_input[:60]}...")
+
+        user_lower = user_input.lower()
+        logger.info(f"🔍 Input text: '{user_input}' | Lowercase: '{user_lower}'")
         
         result = {
             "intent": "unknown",
@@ -198,8 +199,6 @@ RISK LEVELS:
             "reasoning": "",
             "ai_model": "local_nlp",
         }
-        
-        user_lower = user_input.lower()
         
         # ========================================
         # STEP 1: DETECT CRITICAL THREATS
@@ -262,7 +261,7 @@ RISK LEVELS:
         # ========================================
         # STEP 4: CLASSIFY INTENT
         # ========================================
-        
+
         if any(w in user_lower for w in ["buy", "purchase", "acquire"]):
             result["intent"] = "buy_stock"
             result["extracted_data"]["action"] = "buy"
@@ -279,7 +278,9 @@ RISK LEVELS:
             result["intent"] = "check_balance"
             result["extracted_data"]["action"] = "check"
 
-        logger.info(f"  → Detected intent: {result['intent']}")
+        logger.info(
+            f"📍 Intent detected: {result['intent']} | Action: {result['extracted_data'].get('action')}"
+        )
 
         # ========================================
         # STEP 5: EXTRACT TICKER + QUANTITY
@@ -289,6 +290,7 @@ RISK LEVELS:
         # the ticker symbol.
         # Handles patterns like:
         #   "50 AAPL", "50 shares AAPL", "50 shares of AAPL"
+        logger.info("🔄 Attempting PRIMARY qty+ticker regex match...")
         qty_ticker_match = re.search(
             r'(\d+(?:\.\d+)?)\s+(?:shares?\s+(?:of\s+)?|units?\s+(?:of\s+)?)?([A-Z]{1,5})\b',
             user_input,
@@ -297,19 +299,19 @@ RISK LEVELS:
             result["extracted_data"]["qty"] = float(qty_ticker_match.group(1))
             result["extracted_data"]["ticker"] = qty_ticker_match.group(2)
             logger.info(
-                f"  → Primary qty+ticker regex: MATCH "
-                f"qty={result['extracted_data']['qty']}, ticker={result['extracted_data']['ticker']}"
+                f"✅ PRIMARY match: qty={result['extracted_data']['qty']}, "
+                f"ticker={result['extracted_data']['ticker']}"
             )
         else:
-            logger.info("  → Primary qty+ticker regex: NO MATCH")
+            logger.info("❌ PRIMARY qty+ticker regex failed — using fallback extraction")
 
             # Fallback: extract quantity alone
             qty_match = re.search(r'(\d+(?:\.\d+)?)', user_input)
             if qty_match:
                 result["extracted_data"]["qty"] = float(qty_match.group(1))
-                logger.info(f"  → Fallback qty extraction: qty={result['extracted_data']['qty']}")
+                logger.info(f"💰 Fallback qty found: {result['extracted_data']['qty']}")
             else:
-                logger.info("  → Fallback qty extraction: NO MATCH")
+                logger.info("💰 Fallback qty found: None")
 
             # Fallback: extract ticker, skipping common action/preposition words
             skipped_words: list[str] = []
@@ -322,6 +324,9 @@ RISK LEVELS:
                     found_ticker = word
                     result["extracted_data"]["ticker"] = word
                     break
+            logger.info(
+                f"🎯 Fallback ticker (before company mapping): {result['extracted_data'].get('ticker')}"
+            )
 
             if found_ticker:
                 logger.info(
@@ -335,19 +340,20 @@ RISK LEVELS:
 
         # Company name → ticker fallback (e.g. "Apple" → "AAPL")
         if "ticker" not in result["extracted_data"]:
-            matched_company: str | None = None
+            logger.info("🏢 No ticker found yet — attempting company name mapping...")
             for company, sym in _COMPANY_TO_TICKER.items():
                 if company in user_lower:
                     result["extracted_data"]["ticker"] = sym
-                    matched_company = company
+                    logger.info(f"🏢 Company name '{company}' → ticker '{sym}'")
                     break
-            if matched_company:
-                logger.info(
-                    f"  → Company name mapping: Checking for '{matched_company}'"
-                    f" → FOUND! ticker={result['extracted_data']['ticker']}"
-                )
             else:
-                logger.info("  → Company name mapping: No company name found in input")
+                logger.info("🏢 No company name matched in input")
+        else:
+            logger.info(
+                f"🏢 Skipping company mapping — ticker already set: {result['extracted_data']['ticker']}"
+            )
+
+        logger.info(f"📊 Extracted data before price: {result['extracted_data']}")
 
         # ========================================
         # STEP 6: EXTRACT PRICE
@@ -356,13 +362,13 @@ RISK LEVELS:
         price_match = re.search(r'(?:at|@|\$)\s*(\d+(?:\.\d+)?)', user_input)
         if price_match:
             result["extracted_data"]["price"] = float(price_match.group(1))
-        
-        logger.info(f"  → Final extracted_data: {result['extracted_data']}")
+
+        logger.info(f"📊 Final extracted data: {result['extracted_data']}")
 
         # ========================================
         # STEP 7: FINALIZE REASONING
         # ========================================
-        
+
         if result["risk_level"] == "safe":
             result["reasoning"] = f"Safe: Normal {result['intent']} request"
             result["confidence"] = 0.80
@@ -374,8 +380,14 @@ RISK LEVELS:
             factors = ", ".join(result["risk_factors"][:2])
             result["reasoning"] = f"High Risk: {factors}"
             result["confidence"] = 0.85
-        
-        logger.info(f"✅ Local NLP result: {result['intent']} ({result['risk_level']})")
+
+        logger.info(
+            f"✅ FINAL: intent={result['intent']}, "
+            f"ticker={result['extracted_data'].get('ticker')}, "
+            f"qty={result['extracted_data'].get('qty')}, "
+            f"risk={result['risk_level']}, "
+            f"conf={result['confidence']}"
+        )
         return result
 
 
