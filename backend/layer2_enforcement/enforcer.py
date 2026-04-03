@@ -18,11 +18,12 @@ from backend.layer2_enforcement.policy_models import (
 
 logger = logging.getLogger(__name__)
 
-# AI risk level → numeric score (0 = safest, 1 = most dangerous)
+# AI risk level → numeric score on a 4-level scale (0 = safest, 1 = most dangerous).
+# Values are evenly spaced: safe=0/3, caution=1/3, high_risk=2/3, critical=3/3.
 _RISK_ORDER: dict = {
     "safe": 0.0,
-    "caution": 0.333,
-    "high_risk": 0.667,
+    "caution": round(1 / 3, 3),    # 0.333
+    "high_risk": round(2 / 3, 3),  # 0.667
     "critical": 1.0,
 }
 
