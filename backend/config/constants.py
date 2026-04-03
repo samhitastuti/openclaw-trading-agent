@@ -85,12 +85,15 @@ SUSPICIOUS_KEYWORDS: set[str] = {
 # Regex Patterns (used by intent_parser)
 # ─────────────────────────────────────────────
 
-# Matches: "buy 10 shares of AAPL", "BUY 10 AAPL", "buy 10 AAPL at 150"
+# Matches: "buy 10 AAPL", "buy 10 shares AAPL", "buy 10 shares of AAPL",
+#          "BUY 10 AAPL at 150", "sell 5 units MSFT at 300"
 TRADE_PATTERN: str = (
     r"(?P<side>buy|sell)\s+"
-    r"(?P<quantity>\d+(?:\.\d+)?)\s+"
-    r"(?:shares?\s+of\s+|units?\s+of\s+)?"
-    r"(?P<ticker>[A-Z]{1,5})"
+    r"(?P<quantity>\d+(?:\.\d+)?)"
+    r"(?:\s+(?:shares?|units?))?"
+    r"(?:\s+of)?"
+    r"\s+"
+    r"(?P<ticker>[A-Z]{1,5})\b"
     r"(?:\s+at\s+(?P<price>\d+(?:\.\d+)?))?"
 )
 
