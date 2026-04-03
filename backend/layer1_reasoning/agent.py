@@ -43,21 +43,21 @@ import asyncio
 import logging
 from typing import Any, Optional, Protocol, runtime_checkable
 
-from .constants import (
+from backend.config.constants import (
     MAX_INPUT_LENGTH,
     SKILL_ANALYZE,
     SKILL_MARKET_DATA,
     SKILL_TRADE,
     SUSPICIOUS_KEYWORDS,
 )
-from .intent_models import (
+from backend.intent.intent_models import (
     ActionSide,
     AgentResponse,
     EnforcementResult,
     Intent,
     IntentType,
 )
-from .intent_parser import parse_intent
+from backend.intent.intent_parser import parse_intent
 
 # ─────────────────────────────────────────────
 # Collaborator Protocols

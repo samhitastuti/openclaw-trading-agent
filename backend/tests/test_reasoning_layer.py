@@ -21,10 +21,10 @@ import os
 # ── Path setup so the test can be run from the project root ────────────────
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from backend.core.intent_models import ActionSide, AgentResponse, EnforcementResult, Intent, IntentType
-from backend.core.intent_parser import parse_intent, parse_or_raise
-from backend.core.agent import OpenClawAgent
-from backend.core.constants import SUSPICIOUS_KEYWORDS, SUPPORTED_TICKERS
+from backend.intent.intent_models import ActionSide, AgentResponse, EnforcementResult, Intent, IntentType
+from backend.intent.intent_parser import parse_intent, parse_or_raise
+from backend.layer1_reasoning.agent import OpenClawAgent
+from backend.config.constants import SUSPICIOUS_KEYWORDS, SUPPORTED_TICKERS
 
 
 # ─────────────────────────────────────────────

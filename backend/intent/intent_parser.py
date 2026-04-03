@@ -25,7 +25,7 @@ import logging
 import re
 from typing import Optional
 
-from .constants import (
+from backend.config.constants import (
     ANALYZE_PATTERN,
     FETCH_PRICE_PATTERN,
     SUPPORTED_TICKERS,
