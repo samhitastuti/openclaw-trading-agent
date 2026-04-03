@@ -22,6 +22,34 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# Module-level constants for local NLP extraction
+# ============================================================
+
+# Uppercase words to skip when falling back to a bare ticker search,
+# so that action verbs like "BUY" or "SELL" are never mistaken for tickers.
+_TICKER_SKIP_WORDS: set[str] = {"BUY", "SELL", "AT", "FOR", "OF", "THE"}
+
+# Common company names → canonical ticker symbols.
+# Used when the user writes the full company name rather than the symbol.
+_COMPANY_TO_TICKER: dict[str, str] = {
+    "apple": "AAPL",
+    "microsoft": "MSFT",
+    "google": "GOOGL",
+    "alphabet": "GOOGL",
+    "amazon": "AMZN",
+    "meta": "META",
+    "facebook": "META",
+    "nvidia": "NVDA",
+    "tesla": "TSLA",
+    "netflix": "NFLX",
+    "paypal": "PYPL",
+    "adobe": "ADBE",
+    "salesforce": "CRM",
+    "oracle": "ORCL",
+    "intel": "INTC",
+}
+
 # Try to import OpenAI
 try:
     from openai import OpenAI
@@ -252,31 +280,49 @@ RISK LEVELS:
             result["extracted_data"]["action"] = "check"
         
         # ========================================
-        # STEP 5: EXTRACT TICKER
+        # STEP 5: EXTRACT TICKER + QUANTITY
         # ========================================
-        
-        ticker_match = re.search(r'\b([A-Z]{1,5})\b', user_input)
-        if ticker_match:
-            result["extracted_data"]["ticker"] = ticker_match.group(1)
-        
+        # Primary strategy: match qty and ticker together so that uppercase
+        # action words (BUY/SELL) before the number are never confused with
+        # the ticker symbol.
+        # Handles patterns like:
+        #   "50 AAPL", "50 shares AAPL", "50 shares of AAPL"
+        qty_ticker_match = re.search(
+            r'(\d+(?:\.\d+)?)\s+(?:shares?\s+(?:of\s+)?|units?\s+(?:of\s+)?)?([A-Z]{1,5})\b',
+            user_input,
+        )
+        if qty_ticker_match:
+            result["extracted_data"]["qty"] = float(qty_ticker_match.group(1))
+            result["extracted_data"]["ticker"] = qty_ticker_match.group(2)
+        else:
+            # Fallback: extract quantity alone
+            qty_match = re.search(r'(\d+(?:\.\d+)?)', user_input)
+            if qty_match:
+                result["extracted_data"]["qty"] = float(qty_match.group(1))
+
+            # Fallback: extract ticker, skipping common action/preposition words
+            for m in re.finditer(r'\b([A-Z]{1,5})\b', user_input):
+                if m.group(1) not in _TICKER_SKIP_WORDS:
+                    result["extracted_data"]["ticker"] = m.group(1)
+                    break
+
+        # Company name → ticker fallback (e.g. "Apple" → "AAPL")
+        if "ticker" not in result["extracted_data"]:
+            for company, sym in _COMPANY_TO_TICKER.items():
+                if company in user_lower:
+                    result["extracted_data"]["ticker"] = sym
+                    break
+
         # ========================================
-        # STEP 6: EXTRACT QUANTITY
+        # STEP 6: EXTRACT PRICE
         # ========================================
-        
-        qty_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:shares?|stocks?)?', user_input, re.IGNORECASE)
-        if qty_match:
-            result["extracted_data"]["qty"] = float(qty_match.group(1))
-        
-        # ========================================
-        # STEP 7: EXTRACT PRICE
-        # ========================================
-        
+
         price_match = re.search(r'(?:at|@|\$)\s*(\d+(?:\.\d+)?)', user_input)
         if price_match:
             result["extracted_data"]["price"] = float(price_match.group(1))
         
         # ========================================
-        # STEP 8: FINALIZE REASONING
+        # STEP 7: FINALIZE REASONING
         # ========================================
         
         if result["risk_level"] == "safe":

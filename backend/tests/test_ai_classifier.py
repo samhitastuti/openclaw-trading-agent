@@ -89,3 +89,51 @@ def test_extract_data(classifier):
     assert data.get("price") == 250.0
     assert data.get("action") == "buy"
     print("✅ Data extraction test passed")
+
+
+# TICKER + QTY EXTRACTION (bug-fix coverage)
+
+def test_extract_ticker_all_caps_action(classifier):
+    """BUY/SELL in all-caps must not be mistaken for a ticker symbol"""
+    result = classifier.classify("BUY 50 AAPL")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL", f"Expected AAPL, got {data.get('ticker')}"
+    assert data.get("qty") == 50.0
+    print("✅ All-caps action word test passed")
+
+
+def test_extract_ticker_mixed_case_action(classifier):
+    """Title-case 'Buy' must not interfere with ticker extraction"""
+    result = classifier.classify("Buy 50 AAPL")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    print("✅ Mixed-case action word test passed")
+
+
+def test_extract_ticker_from_company_name(classifier):
+    """Company name should map to ticker symbol"""
+    result = classifier.classify("Buy 50 shares of Microsoft")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "MSFT", f"Expected MSFT, got {data.get('ticker')}"
+    assert data.get("qty") == 50.0
+    print("✅ Company name mapping test passed")
+
+
+def test_extract_ticker_apple_company(classifier):
+    """'Apple' company name should map to AAPL"""
+    result = classifier.classify("Sell 10 Apple stock")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL", f"Expected AAPL, got {data.get('ticker')}"
+    assert data.get("qty") == 10.0
+    print("✅ Apple company name test passed")
+
+
+def test_extract_price_with_dollar_sign(classifier):
+    """Price with dollar sign in 'at $150' pattern should be extracted"""
+    result = classifier.classify("Buy 50 AAPL at $150")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL"
+    assert data.get("qty") == 50.0
+    assert data.get("price") == 150.0
+    print("✅ Price extraction test passed")
