@@ -94,16 +94,63 @@ async def test_root(client):
 
 @pytest.mark.asyncio
 async def test_trade_endpoint(client):
-    """Trade endpoint now runs full pipeline and returns SUCCESS or BLOCKED."""
+    """Trade endpoint now runs full pipeline and returns success or blocked."""
     r = await client.post(
         "/api/trade",
         json={"instruction": "Buy 1 share of MSFT at 430", "user_id": "tester"},
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] in ("SUCCESS", "BLOCKED", "ERROR")
+    assert body["status"] in ("success", "blocked", "error")
     assert "ai_classification" in body
     assert "policy_decision" in body
+
+
+@pytest.mark.asyncio
+async def test_trade_endpoint_lowercase_status(client):
+    """Trade endpoint must return lowercase status values."""
+    r = await client.post(
+        "/api/trade",
+        json={"instruction": "Buy 1 share of MSFT at 430", "user_id": "tester"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # Status must be lowercase (not "SUCCESS" or "BLOCKED")
+    assert body["status"] == body["status"].lower()
+
+
+@pytest.mark.asyncio
+async def test_trade_endpoint_reason_field(client):
+    """Trade endpoint must include top-level reason from policy_decision."""
+    r = await client.post(
+        "/api/trade",
+        json={"instruction": "Buy 1 share of MSFT at 430", "user_id": "tester"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # reason field must be populated from policy_decision.reason
+    assert "reason" in body
+    assert body["reason"] is not None
+    assert isinstance(body["reason"], str)
+    assert len(body["reason"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_trade_appl_ticker_parsed(client):
+    """APPL ticker should be parsed and evaluated by the policy enforcer."""
+    r = await client.post(
+        "/api/trade",
+        json={"instruction": "Buy 10 APPL", "user_id": "tester"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # Intent should be parsed (policy_decision must be present)
+    assert "policy_decision" in body
+    assert body["policy_decision"] is not None
+    # Reason should come from policy enforcer with APPL-specific content
+    reason = body.get("reason", "")
+    assert reason != "Non-trade request passed all risk checks"
+    assert "APPL" in reason
 
 
 @pytest.mark.asyncio

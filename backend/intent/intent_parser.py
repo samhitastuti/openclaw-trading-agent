@@ -28,7 +28,6 @@ from typing import Optional
 from backend.config.constants import (
     ANALYZE_PATTERN,
     FETCH_PRICE_PATTERN,
-    SUPPORTED_TICKERS,
     TRADE_PATTERN,
 )
 from .intent_models import ActionSide, Intent, IntentType
@@ -123,9 +122,6 @@ def _try_parse_trade(raw: str, user_id: str) -> Optional[Intent]:
     side = ActionSide.BUY if side_str == "BUY" else ActionSide.SELL
 
     ticker = groups["ticker"].upper()
-    if not _is_valid_ticker(ticker):
-        logger.warning("parse_intent: unsupported ticker %r in trade", ticker)
-        return None
 
     try:
         quantity = float(groups["quantity"])
@@ -167,9 +163,6 @@ def _try_parse_analyze(raw: str, user_id: str) -> Optional[Intent]:
         return None
 
     ticker = match.group("ticker").upper()
-    if not _is_valid_ticker(ticker):
-        logger.warning("parse_intent: unsupported ticker %r in analyze", ticker)
-        return None
 
     return Intent(
         type=IntentType.ANALYZE,
@@ -201,9 +194,6 @@ def _try_parse_fetch(raw: str, user_id: str) -> Optional[Intent]:
         return None
 
     ticker = raw_ticker.upper()
-    if not _is_valid_ticker(ticker):
-        logger.warning("parse_intent: unsupported ticker %r in fetch", ticker)
-        return None
 
     return Intent(
         type=IntentType.FETCH_DATA,
@@ -214,20 +204,6 @@ def _try_parse_fetch(raw: str, user_id: str) -> Optional[Intent]:
         raw_input=raw,
         user_id=user_id,
     )
-
-
-# ─────────────────────────────────────────────
-# Validation Helpers
-# ─────────────────────────────────────────────
-
-
-def _is_valid_ticker(ticker: str) -> bool:
-    """
-    Return True if the ticker is in the supported list.
-    Enforcement may impose further restrictions; this is a first-pass
-    sanity check to avoid routing nonsense to the policy engine.
-    """
-    return ticker in SUPPORTED_TICKERS
 
 
 # ─────────────────────────────────────────────
