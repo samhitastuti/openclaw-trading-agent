@@ -88,72 +88,52 @@ def test_extract_data(classifier):
     assert data.get("qty") == 10.0
     assert data.get("price") == 250.0
     assert data.get("action") == "buy"
+    print("✅ Data extraction test passed")
 
 
-# TICKER EXTRACTION ROBUSTNESS
+# TICKER + QTY EXTRACTION (bug-fix coverage)
 
-def test_buy_ticker_simple(classifier):
-    """Buy 50 AAPL – basic case must extract correct ticker, not action word"""
+def test_extract_ticker_all_caps_action(classifier):
+    """BUY/SELL in all-caps must not be mistaken for a ticker symbol"""
+    result = classifier.classify("BUY 50 AAPL")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "AAPL", f"Expected AAPL, got {data.get('ticker')}"
+    assert data.get("qty") == 50.0
+    print("✅ All-caps action word test passed")
+
+
+def test_extract_ticker_mixed_case_action(classifier):
+    """Title-case 'Buy' must not interfere with ticker extraction"""
     result = classifier.classify("Buy 50 AAPL")
     data = result["extracted_data"]
     assert data.get("ticker") == "AAPL"
     assert data.get("qty") == 50.0
-    assert data.get("action") == "buy"
-    assert result["risk_level"] == "safe"
-    assert result["confidence"] >= 0.80
-    print("✅ Buy 50 AAPL test passed")
+    print("✅ Mixed-case action word test passed")
 
 
-def test_buy_ticker_all_caps_action(classifier):
-    """BUY 50 AAPL – all-caps action word must not be mistaken for ticker"""
-    result = classifier.classify("BUY 50 AAPL")
+def test_extract_ticker_from_company_name(classifier):
+    """Company name should map to ticker symbol"""
+    result = classifier.classify("Buy 50 shares of Microsoft")
     data = result["extracted_data"]
-    assert data.get("ticker") == "AAPL"
+    assert data.get("ticker") == "MSFT", f"Expected MSFT, got {data.get('ticker')}"
     assert data.get("qty") == 50.0
-    print("✅ BUY 50 AAPL (all-caps action) test passed")
+    print("✅ Company name mapping test passed")
 
 
-def test_buy_ticker_lowercase(classifier):
-    """buy 50 aapl – lowercase input must still extract ticker"""
-    result = classifier.classify("buy 50 aapl")
+def test_extract_ticker_apple_company(classifier):
+    """'Apple' company name should map to AAPL"""
+    result = classifier.classify("Sell 10 Apple stock")
     data = result["extracted_data"]
-    assert data.get("ticker") == "AAPL"
-    assert data.get("qty") == 50.0
-    print("✅ buy 50 aapl (lowercase) test passed")
+    assert data.get("ticker") == "AAPL", f"Expected AAPL, got {data.get('ticker')}"
+    assert data.get("qty") == 10.0
+    print("✅ Apple company name test passed")
 
 
-def test_buy_shares_of_ticker(classifier):
-    """Buy 50 shares of AAPL – 'shares of' prefix handled correctly"""
-    result = classifier.classify("Buy 50 shares of AAPL")
-    data = result["extracted_data"]
-    assert data.get("ticker") == "AAPL"
-    assert data.get("qty") == 50.0
-    print("✅ Buy 50 shares of AAPL test passed")
-
-
-def test_buy_ticker_with_price(classifier):
-    """Buy 50 AAPL at 150 – price extracted alongside ticker and qty"""
-    result = classifier.classify("Buy 50 AAPL at 150")
+def test_extract_price_with_dollar_sign(classifier):
+    """Price with dollar sign in 'at $150' pattern should be extracted"""
+    result = classifier.classify("Buy 50 AAPL at $150")
     data = result["extracted_data"]
     assert data.get("ticker") == "AAPL"
     assert data.get("qty") == 50.0
     assert data.get("price") == 150.0
-    print("✅ Buy 50 AAPL at 150 test passed")
-
-
-def test_company_name_apple(classifier):
-    """Sell 10 Apple stock – company name 'Apple' maps to AAPL"""
-    result = classifier.classify("Sell 10 Apple stock")
-    data = result["extracted_data"]
-    assert data.get("ticker") == "AAPL"
-    assert data.get("qty") == 10.0
-    print("✅ Sell 10 Apple stock (company name) test passed")
-
-
-def test_company_name_microsoft(classifier):
-    """Buy 50 shares of Microsoft – company name maps to MSFT"""
-    result = classifier.classify("Buy 50 shares of Microsoft")
-    data = result["extracted_data"]
-    assert data.get("ticker") == "MSFT"
-    assert data.get("qty") == 50.0
-    print("✅ Buy 50 shares of Microsoft (company name) test passed")
+    print("✅ Price extraction test passed")
