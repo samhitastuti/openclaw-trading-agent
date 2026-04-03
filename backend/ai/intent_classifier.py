@@ -278,7 +278,9 @@ RISK LEVELS:
         elif any(w in user_lower for w in ["balance", "account", "position"]):
             result["intent"] = "check_balance"
             result["extracted_data"]["action"] = "check"
-        
+
+        logger.info(f"  → Detected intent: {result['intent']}")
+
         # ========================================
         # STEP 5: EXTRACT TICKER + QUANTITY
         # ========================================
@@ -294,24 +296,58 @@ RISK LEVELS:
         if qty_ticker_match:
             result["extracted_data"]["qty"] = float(qty_ticker_match.group(1))
             result["extracted_data"]["ticker"] = qty_ticker_match.group(2)
+            logger.info(
+                f"  → Primary qty+ticker regex: MATCH "
+                f"qty={result['extracted_data']['qty']}, ticker={result['extracted_data']['ticker']}"
+            )
         else:
+            logger.info("  → Primary qty+ticker regex: NO MATCH")
+
             # Fallback: extract quantity alone
             qty_match = re.search(r'(\d+(?:\.\d+)?)', user_input)
             if qty_match:
                 result["extracted_data"]["qty"] = float(qty_match.group(1))
+                logger.info(f"  → Fallback qty extraction: qty={result['extracted_data']['qty']}")
+            else:
+                logger.info("  → Fallback qty extraction: NO MATCH")
 
             # Fallback: extract ticker, skipping common action/preposition words
+            skipped_words: list[str] = []
+            found_ticker: str | None = None
             for m in re.finditer(r'\b([A-Z]{1,5})\b', user_input):
-                if m.group(1) not in _TICKER_SKIP_WORDS:
-                    result["extracted_data"]["ticker"] = m.group(1)
+                word = m.group(1)
+                if word in _TICKER_SKIP_WORDS:
+                    skipped_words.append(word)
+                else:
+                    found_ticker = word
+                    result["extracted_data"]["ticker"] = word
                     break
+
+            if found_ticker:
+                logger.info(
+                    f"  → Fallback ticker search: Found ticker={found_ticker}"
+                    + (f", skipped {skipped_words}" if skipped_words else "")
+                )
+            else:
+                logger.info(
+                    f"  → Fallback ticker search: Found uppercase words but skipped {skipped_words}"
+                )
 
         # Company name → ticker fallback (e.g. "Apple" → "AAPL")
         if "ticker" not in result["extracted_data"]:
+            matched_company: str | None = None
             for company, sym in _COMPANY_TO_TICKER.items():
                 if company in user_lower:
                     result["extracted_data"]["ticker"] = sym
+                    matched_company = company
                     break
+            if matched_company:
+                logger.info(
+                    f"  → Company name mapping: Checking for '{matched_company}'"
+                    f" → FOUND! ticker={result['extracted_data']['ticker']}"
+                )
+            else:
+                logger.info("  → Company name mapping: No company name found in input")
 
         # ========================================
         # STEP 6: EXTRACT PRICE
@@ -321,6 +357,8 @@ RISK LEVELS:
         if price_match:
             result["extracted_data"]["price"] = float(price_match.group(1))
         
+        logger.info(f"  → Final extracted_data: {result['extracted_data']}")
+
         # ========================================
         # STEP 7: FINALIZE REASONING
         # ========================================
