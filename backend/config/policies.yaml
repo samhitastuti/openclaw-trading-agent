@@ -1,6 +1,8 @@
 trade_policy:
   max_order_value: 10000
-  allowed_tickers: ["AAPL", "NVDA"]
+  per_order_value_limit: 10000
+  allowed_tickers: ["MSFT", "AAPL", "GOOGL", "AMZN", "NVDA"]
+  ai_risk_threshold: 0.8
 
 adversarial_policy:
   forbidden_keywords:
