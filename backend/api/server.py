@@ -8,8 +8,19 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from dotenv import load_dotenv
+
+from backend.api.schemas import (  # noqa: F401 – re-exported for backwards compat
+    AccountInfo,
+    AnalysisRequest,
+    AnalysisResponse,
+    AuditEntry,
+    PolicyConstraint,
+    PolicyResponse,
+    Position,
+    TradeRequest,
+    TradeResponse,
+)
 
 # Load environment
 load_dotenv()
@@ -24,35 +35,6 @@ logger = logging.getLogger(__name__)
 # Import components
 from backend.integrations.alpaca_client import AlpacaClient
 from backend.security.file_access_controller import get_file_access_controller
-
-# ===============================================
-# REQUEST/RESPONSE MODELS
-# ===============================================
-
-class TradeRequest(BaseModel):
-    instruction: str  # Natural language
-    user_id: Optional[str] = "user_default"
-
-
-class PolicyConstraint(BaseModel):
-    type: str
-    value: str
-    severity: str
-    description: str
-
-
-class PolicyResponse(BaseModel):
-    policy_id: str
-    name: str
-    constraints: list
-
-
-class TradeResponse(BaseModel):
-    status: str  # SUCCESS, BLOCKED, ERROR
-    intent: Optional[dict] = None
-    decision: Optional[dict] = None
-    result: Optional[dict] = None
-    reason: Optional[str] = None
 
 
 # ===============================================
