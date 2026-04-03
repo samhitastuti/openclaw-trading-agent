@@ -20,6 +20,7 @@ venv/
 # Outputs
 outputs/
 audit_trail.jsonl
+audit_log.jsonl
 *.log
 
 # OS
