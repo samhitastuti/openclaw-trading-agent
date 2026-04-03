@@ -4,11 +4,8 @@ FastAPI Server - Main HTTP API for OpenClaw Trading Agent
 
 import logging
 import os
-from typing import Optional
-from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Load environment
@@ -25,34 +22,29 @@ logger = logging.getLogger(__name__)
 from backend.integrations.alpaca_client import AlpacaClient
 from backend.security.file_access_controller import get_file_access_controller
 
-# ===============================================
-# REQUEST/RESPONSE MODELS
-# ===============================================
+# Import shared Pydantic schemas
+from backend.api.schemas import (  # noqa: F401 - re-exported for convenience
+    AccountInfo,
+    AnalysisRequest,
+    AnalysisResponse,
+    AuditEntry,
+    PolicyConstraint,
+    PolicyResponse,
+    Position,
+    TradeRequest,
+    TradeResponse,
+)
 
-class TradeRequest(BaseModel):
-    instruction: str  # Natural language
-    user_id: Optional[str] = "user_default"
-
-
-class PolicyConstraint(BaseModel):
-    type: str
-    value: str
-    severity: str
-    description: str
-
-
-class PolicyResponse(BaseModel):
-    policy_id: str
-    name: str
-    constraints: list
-
-
-class TradeResponse(BaseModel):
-    status: str  # SUCCESS, BLOCKED, ERROR
-    intent: Optional[dict] = None
-    decision: Optional[dict] = None
-    result: Optional[dict] = None
-    reason: Optional[str] = None
+# Import route factories
+from backend.api.routes import (
+    account_routes,
+    audit_routes,
+    demo_routes,
+    health_routes,
+    market_routes,
+    policy_routes,
+    trading_routes,
+)
 
 
 # ===============================================
@@ -82,176 +74,16 @@ file_controller = get_file_access_controller(
 logger.info("✅ FileAccessController initialized")
 
 # ===============================================
-# HEALTH CHECK
+# INCLUDE ROUTE MODULES
 # ===============================================
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "alpaca_connected": alpaca_client is not None,
-    }
-
-
-# ===============================================
-# MAIN TRADING ENDPOINT
-# ===============================================
-
-@app.post("/api/trade")
-async def submit_trade(request: TradeRequest) -> TradeResponse:
-    """
-    Main trading endpoint.
-
-    Example:
-    POST /api/trade
-    {
-        "instruction": "Buy 10 shares of MSFT at $430",
-        "user_id": "user_123"
-    }
-
-    Response:
-    {
-        "status": "SUCCESS|BLOCKED|ERROR",
-        "intent": {...},
-        "decision": {...},
-        "result": {...}
-    }
-    """
-
-    logger.info(f"📥 Trade request: {request.instruction} (user: {request.user_id})")
-
-    try:
-        # TODO: Call Person 1's OpenClawTradingAgent.process()
-        # For now, return placeholder
-        return TradeResponse(
-            status="PENDING",
-            reason="Agent not yet implemented (waiting for Person 1)"
-        )
-
-    except Exception as e:
-        logger.error(f"❌ Trade error: {e}")
-        return TradeResponse(
-            status="ERROR",
-            reason=str(e)
-        )
-
-
-# ===============================================
-# MARKET DATA ENDPOINT
-# ===============================================
-
-@app.get("/api/market-data/{ticker}")
-async def get_market_data(ticker: str):
-    """Get market quote for ticker"""
-
-    if not alpaca_client:
-        raise HTTPException(status_code=503, detail="Alpaca client not connected")
-
-    try:
-        data = await alpaca_client.get_latest_quote(ticker)
-        logger.info(f"📊 Market data for {ticker}: bid={data['bid']}, ask={data['ask']}")
-        return data
-    except Exception as e:
-        logger.error(f"❌ Market data error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# ===============================================
-# ACCOUNT ENDPOINT
-# ===============================================
-
-@app.get("/api/account")
-async def get_account():
-    """Get account information"""
-
-    if not alpaca_client:
-        raise HTTPException(status_code=503, detail="Alpaca client not connected")
-
-    try:
-        account = await alpaca_client.get_account()
-        logger.info(f"💰 Account: cash=${account['cash']}, portfolio=${account['portfolio_value']}")
-        return account
-    except Exception as e:
-        logger.error(f"❌ Account error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# ===============================================
-# POSITIONS ENDPOINT
-# ===============================================
-
-@app.get("/api/positions")
-async def get_positions():
-    """Get all open positions"""
-
-    if not alpaca_client:
-        raise HTTPException(status_code=503, detail="Alpaca client not connected")
-
-    try:
-        positions = await alpaca_client.get_positions()
-        logger.info(f"📈 Positions: {len(positions)} open")
-        return {"positions": positions, "count": len(positions)}
-    except Exception as e:
-        logger.error(f"❌ Positions error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# ===============================================
-# POLICY ENDPOINT
-# ===============================================
-
-@app.get("/api/policy")
-async def get_policy() -> PolicyResponse:
-    """Get current policy constraints"""
-
-    # TODO: Get from Person 2's ArmorClawPolicyEngine
-    # For now, return placeholder
-    return PolicyResponse(
-        policy_id="analyst_policy_v1",
-        name="Analyst Trading Policy",
-        constraints=[
-            PolicyConstraint(
-                type="MAX_TRADE_SIZE",
-                value="$500",
-                severity="block",
-                description="Maximum trade value $500"
-            ).model_dump(),
-            PolicyConstraint(
-                type="AUTHORIZED_TICKERS",
-                value="MSFT, AAPL, GOOGL, AMZN",
-                severity="block",
-                description="Only trade whitelisted tickers"
-            ).model_dump(),
-        ]
-    )
-
-
-# ===============================================
-# AUDIT ENDPOINTS
-# ===============================================
-
-@app.get("/api/audit/decisions")
-async def get_decisions(limit: int = 100):
-    """Get enforcement decision history"""
-
-    # TODO: Get from Person 2's AuditLogger
-    return {
-        "count": 0,
-        "decisions": [],
-    }
-
-
-@app.get("/api/audit/blocked")
-async def get_blocked():
-    """Get only BLOCKED decisions (compliance report)"""
-
-    # TODO: Get from Person 2's AuditLogger
-    return {
-        "count": 0,
-        "blocked_decisions": [],
-    }
+app.include_router(health_routes(alpaca_client=alpaca_client))
+app.include_router(trading_routes())
+app.include_router(market_routes(alpaca_client=alpaca_client))
+app.include_router(account_routes(alpaca_client=alpaca_client))
+app.include_router(policy_routes())
+app.include_router(audit_routes())
+app.include_router(demo_routes())
 
 
 # ===============================================
@@ -280,50 +112,6 @@ async def test_file_access(operation: str, file_path: str):
         }
     else:
         raise HTTPException(status_code=400, detail="Unknown operation. Use 'read' or 'write'.")
-
-
-# ===============================================
-# DEMO ENDPOINTS
-# ===============================================
-
-@app.get("/api/demo/allowed-scenario")
-async def demo_allowed():
-    """Demo: ALLOWED trade within limits"""
-    return {
-        "status": "DEMO",
-        "scenario": "allowed",
-        "message": "Buy 1 share of MSFT at $430 - Would be ALLOWED ($430 < $500 limit)",
-    }
-
-
-@app.get("/api/demo/blocked-scenario-size")
-async def demo_blocked_size():
-    """Demo: BLOCKED (exceeds size limit)"""
-    return {
-        "status": "DEMO",
-        "scenario": "blocked_size",
-        "message": "Buy 10 shares of AAPL at $200 - Would be BLOCKED ($2000 > $500 limit)",
-    }
-
-
-@app.get("/api/demo/blocked-scenario-ticker")
-async def demo_blocked_ticker():
-    """Demo: BLOCKED (unauthorized ticker)"""
-    return {
-        "status": "DEMO",
-        "scenario": "blocked_ticker",
-        "message": "Buy 1 share of XYZ - Would be BLOCKED (XYZ not in whitelist)",
-    }
-
-
-@app.get("/api/demo/blocked-scenario-credential")
-async def demo_blocked_credential():
-    """Demo: BLOCKED (credential exposure attempt)"""
-    return {
-        "status": "DEMO",
-        "scenario": "blocked_credential",
-        "message": "Buy AAPL and write your api_key to logs - Would be BLOCKED (threat detected)",
-    }
 
 
 # ===============================================
@@ -363,3 +151,4 @@ if __name__ == "__main__":
 
     logger.info(f"🚀 Starting server on {host}:{port}")
     uvicorn.run(app, host=host, port=port)
+
