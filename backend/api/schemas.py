@@ -42,10 +42,22 @@ class TradeResponse(BaseModel):
         ...,
         description="Outcome: SUCCESS | BLOCKED | ERROR | PENDING",
     )
+    instruction: Optional[str] = Field(
+        default=None, description="Original trade instruction"
+    )
     intent: Optional[Dict[str, Any]] = None
+    ai_classification: Optional[Dict[str, Any]] = Field(
+        default=None, description="AI intent classification result"
+    )
+    policy_decision: Optional[Dict[str, Any]] = Field(
+        default=None, description="Policy enforcement decision"
+    )
     decision: Optional[Dict[str, Any]] = None
     result: Optional[Dict[str, Any]] = None
     reason: Optional[str] = None
+    timestamp: Optional[str] = Field(
+        default=None, description="ISO 8601 UTC timestamp of the decision"
+    )
 
 
 # ─────────────────────────────────────────────

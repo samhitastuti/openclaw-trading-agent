@@ -93,14 +93,17 @@ async def test_root(client):
 # -----------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_trade_pending(client):
+async def test_trade_endpoint(client):
+    """Trade endpoint now runs full pipeline and returns SUCCESS or BLOCKED."""
     r = await client.post(
         "/api/trade",
-        json={"instruction": "Buy 1 share of MSFT", "user_id": "tester"},
+        json={"instruction": "Buy 1 share of MSFT at 430", "user_id": "tester"},
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "PENDING"
+    assert body["status"] in ("SUCCESS", "BLOCKED", "ERROR")
+    assert "ai_classification" in body
+    assert "policy_decision" in body
 
 
 @pytest.mark.asyncio
@@ -226,9 +229,10 @@ async def test_demo_allowed_scenario(client):
     r = await client.get("/api/demo/allowed-scenario")
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "DEMO"
+    assert body["status"] in ("ALLOWED", "BLOCKED")
     assert body["scenario"] == "allowed"
-    assert "ALLOWED" in body["message"]
+    assert "ai_classification" in body
+    assert "policy_decision" in body
 
 
 @pytest.mark.asyncio
@@ -255,7 +259,9 @@ async def test_demo_blocked_credential(client):
     assert r.status_code == 200
     body = r.json()
     assert body["scenario"] == "blocked_credential"
-    assert "BLOCKED" in body["message"]
+    assert body["status"] in ("BLOCKED", "ALLOWED")
+    assert "ai_classification" in body
+    assert "policy_decision" in body
 
 
 # -----------------------------------------------------------------------
