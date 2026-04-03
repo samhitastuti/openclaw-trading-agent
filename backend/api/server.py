@@ -5,7 +5,7 @@ FastAPI Server - Main HTTP API for OpenClaw Trading Agent
 import logging
 import os
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import components (we'll mock these for now since other persons haven't built them yet)
+# Import components
 from backend.integrations.alpaca_client import AlpacaClient
 from backend.security.file_access_controller import get_file_access_controller
 
@@ -90,7 +90,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "alpaca_connected": alpaca_client is not None,
     }
 
@@ -103,14 +103,14 @@ async def health_check():
 async def submit_trade(request: TradeRequest) -> TradeResponse:
     """
     Main trading endpoint.
-    
+
     Example:
     POST /api/trade
     {
         "instruction": "Buy 10 shares of MSFT at $430",
         "user_id": "user_123"
     }
-    
+
     Response:
     {
         "status": "SUCCESS|BLOCKED|ERROR",
@@ -119,18 +119,17 @@ async def submit_trade(request: TradeRequest) -> TradeResponse:
         "result": {...}
     }
     """
-    
+
     logger.info(f"📥 Trade request: {request.instruction} (user: {request.user_id})")
-    
+
     try:
         # TODO: Call Person 1's OpenClawTradingAgent.process()
         # For now, return placeholder
-        
         return TradeResponse(
             status="PENDING",
             reason="Agent not yet implemented (waiting for Person 1)"
         )
-    
+
     except Exception as e:
         logger.error(f"❌ Trade error: {e}")
         return TradeResponse(
@@ -146,10 +145,10 @@ async def submit_trade(request: TradeRequest) -> TradeResponse:
 @app.get("/api/market-data/{ticker}")
 async def get_market_data(ticker: str):
     """Get market quote for ticker"""
-    
+
     if not alpaca_client:
         raise HTTPException(status_code=503, detail="Alpaca client not connected")
-    
+
     try:
         data = await alpaca_client.get_latest_quote(ticker)
         logger.info(f"📊 Market data for {ticker}: bid={data['bid']}, ask={data['ask']}")
@@ -166,10 +165,10 @@ async def get_market_data(ticker: str):
 @app.get("/api/account")
 async def get_account():
     """Get account information"""
-    
+
     if not alpaca_client:
         raise HTTPException(status_code=503, detail="Alpaca client not connected")
-    
+
     try:
         account = await alpaca_client.get_account()
         logger.info(f"💰 Account: cash=${account['cash']}, portfolio=${account['portfolio_value']}")
@@ -180,16 +179,35 @@ async def get_account():
 
 
 # ===============================================
+# POSITIONS ENDPOINT
+# ===============================================
+
+@app.get("/api/positions")
+async def get_positions():
+    """Get all open positions"""
+
+    if not alpaca_client:
+        raise HTTPException(status_code=503, detail="Alpaca client not connected")
+
+    try:
+        positions = await alpaca_client.get_positions()
+        logger.info(f"📈 Positions: {len(positions)} open")
+        return {"positions": positions, "count": len(positions)}
+    except Exception as e:
+        logger.error(f"❌ Positions error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ===============================================
 # POLICY ENDPOINT
 # ===============================================
 
 @app.get("/api/policy")
 async def get_policy() -> PolicyResponse:
     """Get current policy constraints"""
-    
+
     # TODO: Get from Person 2's ArmorClawPolicyEngine
     # For now, return placeholder
-    
     return PolicyResponse(
         policy_id="analyst_policy_v1",
         name="Analyst Trading Policy",
@@ -199,13 +217,13 @@ async def get_policy() -> PolicyResponse:
                 value="$500",
                 severity="block",
                 description="Maximum trade value $500"
-            ),
+            ).model_dump(),
             PolicyConstraint(
                 type="AUTHORIZED_TICKERS",
                 value="MSFT, AAPL, GOOGL, AMZN",
                 severity="block",
                 description="Only trade whitelisted tickers"
-            ),
+            ).model_dump(),
         ]
     )
 
@@ -217,9 +235,8 @@ async def get_policy() -> PolicyResponse:
 @app.get("/api/audit/decisions")
 async def get_decisions(limit: int = 100):
     """Get enforcement decision history"""
-    
+
     # TODO: Get from Person 2's AuditLogger
-    
     return {
         "count": 0,
         "decisions": [],
@@ -229,9 +246,8 @@ async def get_decisions(limit: int = 100):
 @app.get("/api/audit/blocked")
 async def get_blocked():
     """Get only BLOCKED decisions (compliance report)"""
-    
+
     # TODO: Get from Person 2's AuditLogger
-    
     return {
         "count": 0,
         "blocked_decisions": [],
@@ -245,7 +261,7 @@ async def get_blocked():
 @app.get("/api/test/file-access/{operation}/{file_path:path}")
 async def test_file_access(operation: str, file_path: str):
     """Test file access control"""
-    
+
     if operation == "read":
         allowed, reason = file_controller.is_read_allowed(file_path)
         return {
@@ -263,7 +279,7 @@ async def test_file_access(operation: str, file_path: str):
             "reason": reason,
         }
     else:
-        raise HTTPException(status_code=400, detail="Unknown operation")
+        raise HTTPException(status_code=400, detail="Unknown operation. Use 'read' or 'write'.")
 
 
 # ===============================================
@@ -326,6 +342,7 @@ async def root():
             "trading": "/api/trade",
             "market_data": "/api/market-data/{ticker}",
             "account": "/api/account",
+            "positions": "/api/positions",
             "policy": "/api/policy",
             "audit": "/api/audit/decisions",
             "demos": [
@@ -340,9 +357,9 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     host = os.getenv("SERVER_HOST", "0.0.0.0")
     port = int(os.getenv("SERVER_PORT", 8000))
-    
+
     logger.info(f"🚀 Starting server on {host}:{port}")
     uvicorn.run(app, host=host, port=port)
