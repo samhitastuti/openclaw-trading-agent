@@ -1,3 +1,8 @@
-rules:
-  - name: example_rule
-    condition: 'quantity <= 10'
+trade_policy:
+  max_order_value: 10000
+  allowed_tickers: ["AAPL", "NVDA"]
+
+adversarial_policy:
+  forbidden_keywords:
+    - "ignore rules"
+    - "disable security"
