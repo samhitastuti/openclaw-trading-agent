@@ -157,4 +157,3 @@ def test_company_name_microsoft(classifier):
     assert data.get("ticker") == "MSFT"
     assert data.get("qty") == 50.0
     print("✅ Buy 50 shares of Microsoft (company name) test passed")
-    print("✅ Data extraction test passed")
