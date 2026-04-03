@@ -169,7 +169,15 @@ async def get_market_data(ticker: str):
     """Get market quote for ticker"""
 
     if not alpaca_client:
-        raise HTTPException(status_code=503, detail="Alpaca client not connected")
+        logger.warning(f"⚠️  Alpaca not connected – returning demo quote for {ticker}")
+        return {
+            "bid": 0.0,
+            "ask": 0.0,
+            "last": 0.0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "demo": True,
+            "message": "Alpaca credentials not configured. Set ALPACA_API_KEY and ALPACA_SECRET_KEY in .env",
+        }
 
     try:
         data = await alpaca_client.get_latest_quote(ticker)
@@ -189,7 +197,14 @@ async def get_account():
     """Get account information"""
 
     if not alpaca_client:
-        raise HTTPException(status_code=503, detail="Alpaca client not connected")
+        logger.warning("⚠️  Alpaca not connected – returning demo account")
+        return {
+            "cash": 0.0,
+            "portfolio_value": 0.0,
+            "buying_power": 0.0,
+            "demo": True,
+            "message": "Alpaca credentials not configured. Set ALPACA_API_KEY and ALPACA_SECRET_KEY in .env",
+        }
 
     try:
         account = await alpaca_client.get_account()
@@ -209,7 +224,13 @@ async def get_positions():
     """Get all open positions"""
 
     if not alpaca_client:
-        raise HTTPException(status_code=503, detail="Alpaca client not connected")
+        logger.warning("⚠️  Alpaca not connected – returning empty positions")
+        return {
+            "positions": [],
+            "count": 0,
+            "demo": True,
+            "message": "Alpaca credentials not configured. Set ALPACA_API_KEY and ALPACA_SECRET_KEY in .env",
+        }
 
     try:
         positions = await alpaca_client.get_positions()
