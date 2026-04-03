@@ -5,10 +5,13 @@ Uses regex-based parsing (no LLM calls) to transform raw user strings
 into typed Intent objects that the agent can enforce and route.
 
 Supported input patterns (case-insensitive after normalisation):
-  Trade  : "buy 10 shares of AAPL"
+  Trade  : "buy 10 AAPL"
+           "buy 10 shares AAPL"
+           "buy 10 shares of AAPL"
            "sell 5 TSLA"
            "buy 2.5 NVDA at 450"
            "sell 100 SPY at 420.50"
+           "sell 5 units MSFT at 300"
   Analyze: "analyze MSFT"
            "analysis of AAPL"
            "check fundamentals of GOOGL"
