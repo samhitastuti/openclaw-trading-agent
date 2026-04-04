@@ -541,8 +541,8 @@ RISK LEVELS:
         #   "50 AAPL", "50 shares AAPL", "50 shares of AAPL"
         logger.info("🔄 Attempting PRIMARY qty+ticker regex match...")
         qty_ticker_match = re.search(
-            r'(\d+(?:\.\d+)?)\s+(?:shares?\s+(?:of\s+)?|units?\s+(?:of\s+)?)?([A-Z]{1,5})\b',
-            user_input,
+            r'(\d+(?:\.\d+)?)\s+(?:SHARES?\s+(?:OF\s+)?|UNITS?\s+(?:OF\s+)?)?([A-Z]{1,10})\b',
+            user_input.upper(),
         )
         if qty_ticker_match:
             result["extracted_data"]["qty"] = float(qty_ticker_match.group(1))
@@ -565,7 +565,7 @@ RISK LEVELS:
             # Fallback: extract ticker, skipping common action/preposition words
             skipped_words: list[str] = []
             found_ticker: str | None = None
-            for m in re.finditer(r'\b([A-Z]{1,5})\b', user_input):
+            for m in re.finditer(r'\b([A-Z]{1,10})\b', user_input.upper()):
                 word = m.group(1)
                 if word in _TICKER_SKIP_WORDS:
                     skipped_words.append(word)
@@ -587,8 +587,14 @@ RISK LEVELS:
                     f"  → Fallback ticker search: Found uppercase words but skipped {skipped_words}"
                 )
 
-        # Company name → ticker fallback (e.g. "Apple" → "AAPL")
-        if "ticker" not in result["extracted_data"]:
+        # Company name → ticker mapping (e.g. "Apple"/"APPLE" → "AAPL")
+        existing_ticker = result["extracted_data"].get("ticker")
+        if existing_ticker and existing_ticker.lower() in _COMPANY_TO_TICKER:
+            # Regex extracted a company name — map it to the real ticker symbol
+            mapped = _COMPANY_TO_TICKER[existing_ticker.lower()]
+            result["extracted_data"]["ticker"] = mapped
+            logger.info(f"🏢 Regex extracted company name '{existing_ticker}' → ticker '{mapped}'")
+        elif not existing_ticker:
             logger.info("🏢 No ticker found yet — attempting company name mapping...")
             for company, sym in _COMPANY_TO_TICKER.items():
                 if company in user_lower:
