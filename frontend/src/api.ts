@@ -1,6 +1,8 @@
 // frontend/src/api.ts
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+console.log('🔌 API_URL:', API_URL);  // ← ADD THIS LINE
+console.log('📦 VITE_API_URL env:', import.meta.env.VITE_API_URL);  // ← ADD THIS LINE
 
 export interface AIClassification {
   intent: string;
