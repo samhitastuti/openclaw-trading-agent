@@ -298,7 +298,7 @@ class IntentClassifier:
     # OLLAMA CLASSIFICATION (Free local AI – Mistral)
     # ============================================================
 
-   def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
+     def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
     """Use the local Ollama/Mistral model for classification."""
 
     logger.info(f"🦙 Ollama classification: {user_input[:60]}...")
