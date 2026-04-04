@@ -1,6 +1,5 @@
+import { API_URL } from '../api';
 import { EvaluationResult, DecisionStatus } from '../types';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const evaluateIntent = async (input: string): Promise<EvaluationResult> => {
   const response = await fetch(`${API_URL}/api/trade`, {

@@ -4,6 +4,7 @@ Auth API: register, login, and optional current-user lookup.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -40,8 +41,8 @@ def _auth_user_response(user_id: int, email: str, full_name: str) -> AuthTokenRe
 @router.post("/register", response_model=AuthTokenResponse)
 async def auth_register(body: AuthRegisterRequest) -> AuthTokenResponse:
     try:
-        uid, email, full_name = register_user(
-            body.full_name, body.email, body.password
+        uid, email, full_name = await asyncio.to_thread(
+            register_user, body.full_name, body.email, body.password
         )
     except ValueError as e:
         if "already exists" in str(e):
@@ -53,7 +54,7 @@ async def auth_register(body: AuthRegisterRequest) -> AuthTokenResponse:
 
 @router.post("/login", response_model=AuthTokenResponse)
 async def auth_login(body: AuthLoginRequest) -> AuthTokenResponse:
-    row = authenticate_user(body.email, body.password)
+    row = await asyncio.to_thread(authenticate_user, body.email, body.password)
     if row is None:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     uid, email, full_name = row
