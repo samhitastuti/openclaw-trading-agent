@@ -348,10 +348,11 @@ class IntentClassifier:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 response_body = resp.read().decode("utf-8")
 
-           logger.info(f"📥 Ollama response: {resp.status}")
+logger.info(f"📥 Ollama response: {resp.status}")
 response_json = json.loads(response_body)
-logger.info(f"📋 Full Ollama JSON: {json.dumps(response_json, indent=2)}")
+logger.info(f"📋 Full Ollama JSON response: {response_body[:500]}")  # Log raw response
 response_text = response_json.get("message", {}).get("content", "")
+logger.info(f"📝 Ollama content: {response_text}")
             try:
                 classification = json.loads(response_text)
             except json.JSONDecodeError:
