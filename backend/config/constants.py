@@ -87,29 +87,32 @@ SUSPICIOUS_KEYWORDS: set[str] = {
 
 # Matches: "buy 10 AAPL", "buy 10 shares AAPL", "buy 10 shares of AAPL",
 #          "BUY 10 AAPL at 150", "sell 5 units MSFT at 300",
-#          "sell 5 TSLA at 150"
+#          "sell 5 TSLA at 150", "BUY 240 MICROSOFT"
+# Ticker group allows up to 15 characters to accommodate full company names
+# such as "MICROSOFT" (9) or "SALESFORCE" (10) that users may type instead
+# of the canonical symbol.  The intent_parser maps these to real symbols.
 TRADE_PATTERN: str = (
     r"(?P<side>buy|sell)\s+"
     r"(?P<quantity>\d+(?:\.\d+)?)\s+"
     r"(?:(?:shares?|units?)\s+(?:of\s+)?)?"
-    r"(?P<ticker>[A-Z]{1,5})\b"
+    r"(?P<ticker>[A-Z]{1,15})\b"
     r"(?:\s+at\s+(?P<price>\d+(?:\.\d+)?))?"
 )
 
-# Matches: "analyze MSFT", "analysis of AAPL"
+# Matches: "analyze MSFT", "analysis of AAPL", "analyze Microsoft"
 ANALYZE_PATTERN: str = (
     r"(?:analyze|analysis\s+of|analyse|check\s+fundamentals\s+of)\s+"
-    r"(?P<ticker>[A-Z]{1,5})"
+    r"(?P<ticker>[A-Z]{1,15})"
 )
 
 # Matches: "price of GOOGL", "get TSLA price", "what is the price of AMZN"
 FETCH_PRICE_PATTERN: str = (
     r"(?:"
-    r"(?:get\s+(?:the\s+)?)?price\s+of\s+(?P<ticker1>[A-Z]{1,5})"          # price of X / get price of X
-    r"|what(?:\s+is)?\s+the\s+price\s+of\s+(?P<ticker2>[A-Z]{1,5})"        # what is the price of X
-    r"|get\s+(?P<ticker3>[A-Z]{1,5})\s+price"                               # get X price
-    r"|quote\s+(?:for\s+)?(?P<ticker4>[A-Z]{1,5})"                          # quote for X
-    r"|fetch\s+(?:data\s+for\s+)?(?P<ticker5>[A-Z]{1,5})"                   # fetch data for X
+    r"(?:get\s+(?:the\s+)?)?price\s+of\s+(?P<ticker1>[A-Z]{1,15})"          # price of X / get price of X
+    r"|what(?:\s+is)?\s+the\s+price\s+of\s+(?P<ticker2>[A-Z]{1,15})"        # what is the price of X
+    r"|get\s+(?P<ticker3>[A-Z]{1,15})\s+price"                               # get X price
+    r"|quote\s+(?:for\s+)?(?P<ticker4>[A-Z]{1,15})"                          # quote for X
+    r"|fetch\s+(?:data\s+for\s+)?(?P<ticker5>[A-Z]{1,15})"                   # fetch data for X
     r")"
 )
 
