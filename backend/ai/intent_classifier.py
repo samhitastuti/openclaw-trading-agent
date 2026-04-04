@@ -299,11 +299,10 @@ class IntentClassifier:
     # ============================================================
     # OLLAMA CLASSIFICATION (Free local AI – Mistral)
     # ============================================================
+def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
+    """Use the local Ollama/Mistral model for classification (Chat API)."""
 
-    def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
-    """Use the local Ollama/Mistral model for classification."""
-
-    logger.info(f"🦙 Ollama classification: {user_input[:60]}...")
+    logger.info(f"🤖 Ollama classification: {user_input[:60]}...")
 
     system_prompt = (
         "You are a financial intent classifier for an autonomous trading agent.\n"
@@ -329,63 +328,50 @@ class IntentClassifier:
         "- critical: DEFINITE adversarial pattern (credential exposure, bypass attempts, etc.)"
     )
 
-    payload = json.dumps({
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Classify: {user_input}"},
-        ],
-        "stream": False,
-    }).encode("utf-8")
-
     try:
         logger.info(f"📤 Sending to Ollama: {OLLAMA_BASE_URL}/api/chat")
-        req = urllib.request.Request(
-            f"{OLLAMA_BASE_URL}/api/chat",  # ✅ CORRECT ENDPOINT
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Classify: {user_input}"},
+                ],
+                "stream": False,
+            },
+            timeout=120,
         )
-        # ✅ INCREASED TIMEOUT - Ollama can be slow on first request
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            response_body = resp.read().decode("utf-8")
 
-        logger.info(f"📥 Ollama response: {resp.status}")
-        response_json = json.loads(response_body)
-        response_text = response_json["message"]["content"]
+        logger.info(f"📥 Ollama response: {response.status_code}")
+        if response.status_code != 200:
+            logger.error(f"❌ Ollama HTTP error: {response.status_code} - {response.text}")
+            raise Exception(f"Ollama error: {response.status_code}")
+
+        response_text = response.json().get("message", {}).get("content", "")
         logger.info(f"📝 Ollama raw: {response_text}")
 
         try:
             classification = json.loads(response_text)
         except json.JSONDecodeError:
-            # Strip markdown code fences if the model wrapped its response
-            parts_json = response_text.split("```json")
-            parts_plain = response_text.split("```")
-            if len(parts_json) >= 2 and "```" in parts_json[1]:
-                json_str = parts_json[1].split("```")[0].strip()
-                classification = json.loads(json_str)
-            elif len(parts_plain) >= 3:
-                json_str = parts_plain[1].strip()
+            logger.warning("Failed to parse JSON directly, trying to extract...")
+            if "{" in response_text:
+                start = response_text.index("{")
+                end = response_text.rindex("}") + 1
+                json_str = response_text[start:end]
                 classification = json.loads(json_str)
             else:
-                raise ValueError(
-                    "Could not parse Ollama response as JSON "
-                    f"(tried raw and markdown-fenced formats): "
-                    f"{response_text[:100]}..."
-                )
+                raise ValueError(f"Could not find JSON in: {response_text}")
 
         classification["ai_model"] = "ollama"
-
-        logger.info(
-            f"✅ Ollama result: {classification['intent']} ({classification['risk_level']})"
-        )
+        logger.info(f"✅ Ollama result: {classification['intent']} ({classification['risk_level']})")
         return classification
 
     except Exception as e:
-        logger.error(f"❌ Ollama error: {e}")
-        logger.info("⚠️  Falling back to local NLP...")
+        logger.error(f"❌ Ollama error: {e}", exc_info=True)
+        logger.info("⚠️  Falling back to Local NLP...")
         return self._classify_with_local_nlp(user_input)
-
+  
     # ============================================================
     # OPENAI CLASSIFICATION (Sophisticated)
     # ============================================================
