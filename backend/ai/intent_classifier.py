@@ -7,7 +7,8 @@ Think of it as a semantic gateway that:
 2. Flags suspicious patterns early
 3. Provides confidence scores
 
-Two modes:
+Three modes (priority order):
+- Ollama/Mistral: Free, locally-running AI (http://localhost:11434)
 - OpenAI: Semantic + sophisticated threat detection
 - Local NLP: Fast, deterministic, no API calls
 """
@@ -16,11 +17,34 @@ import logging
 import json
 import os
 import re
+import urllib.request
+import urllib.error
 from typing import Dict, Any
 from enum import Enum
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# ============================================================
+# Ollama configuration
+# ============================================================
+
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+
+
+def _ollama_is_available() -> bool:
+    """Return True if the Ollama server is reachable."""
+    try:
+        req = urllib.request.Request(
+            f"{OLLAMA_BASE_URL}/api/tags",
+            headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
 
 # ============================================================
 # Module-level constants for local NLP extraction
@@ -85,20 +109,39 @@ class IntentClassifier:
     """
     
     def __init__(self):
-        """Initialize classifier (auto-detects OpenAI availability)"""
+        """Initialize classifier (auto-detects Ollama then OpenAI availability)"""
         
-        self.use_openai = OPENAI_AVAILABLE and os.getenv("OPENAI_API_KEY")
+        # ---- Ollama ----
+        use_ollama_env = os.getenv("USE_OLLAMA", "auto").lower()
+        if use_ollama_env == "true":
+            self.use_ollama = True
+        elif use_ollama_env == "false":
+            self.use_ollama = False
+        else:  # "auto" – probe the server
+            self.use_ollama = _ollama_is_available()
+
+        if self.use_ollama:
+            logger.info(
+                f"✅ IntentClassifier: Using Ollama ({OLLAMA_MODEL}) at {OLLAMA_BASE_URL}"
+            )
+
+        # ---- OpenAI ----
+        self.use_openai = OPENAI_AVAILABLE and bool(os.getenv("OPENAI_API_KEY"))
         
         if self.use_openai:
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            logger.info("✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo)")
-        else:
+            if not self.use_ollama:
+                logger.info("✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo)")
+        
+        if not self.use_ollama and not self.use_openai:
             logger.info("✅ IntentClassifier: Using Local NLP (regex + keywords)")
     
     def classify(self, user_input: str) -> Dict[str, Any]:
         """
         Main classification entry point.
         
+        Priority: Ollama > OpenAI > Local NLP
+
         Args:
             user_input: User's natural language command
         
@@ -106,11 +149,101 @@ class IntentClassifier:
             Classification result dict
         """
         
-        if self.use_openai:
+        if self.use_ollama:
+            return self._classify_with_ollama(user_input)
+        elif self.use_openai:
             return self._classify_with_openai(user_input)
         else:
             return self._classify_with_local_nlp(user_input)
     
+    # ============================================================
+    # OLLAMA CLASSIFICATION (Free local AI – Mistral)
+    # ============================================================
+
+    def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
+        """Use the local Ollama/Mistral model for classification."""
+
+        logger.info(f"🦙 Ollama classification: {user_input[:60]}...")
+
+        system_prompt = (
+            "You are a financial intent classifier for an autonomous trading agent.\n"
+            "Your job: Analyze user input and return a JSON classification.\n\n"
+            "Return ONLY valid JSON (no markdown, no explanation):\n"
+            "{\n"
+            '    "intent": "buy_stock" | "sell_stock" | "analyze" | "check_balance" | "unknown",\n'
+            '    "risk_level": "safe" | "caution" | "high_risk" | "critical",\n'
+            '    "confidence": 0.0-1.0,\n'
+            '    "extracted_data": {\n'
+            '        "ticker": "AAPL" or null,\n'
+            '        "qty": 100 or null,\n'
+            '        "price": 150.50 or null,\n'
+            '        "action": "buy" | "sell" | "analyze" or null\n'
+            "    },\n"
+            '    "risk_factors": ["list", "of", "detected", "risks"],\n'
+            '    "reasoning": "explanation of classification"\n'
+            "}\n\n"
+            "RISK LEVELS:\n"
+            "- safe: Normal trading within bounds\n"
+            "- caution: Unusual but potentially valid\n"
+            "- high_risk: Multiple risk signals\n"
+            "- critical: DEFINITE adversarial pattern (credential exposure, bypass attempts, etc.)"
+        )
+
+        payload = json.dumps({
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Classify: {user_input}"},
+            ],
+            "stream": False,
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                response_body = resp.read().decode("utf-8")
+
+            response_json = json.loads(response_body)
+            response_text = response_json["message"]["content"]
+
+            try:
+                classification = json.loads(response_text)
+            except json.JSONDecodeError:
+                # Strip markdown code fences if the model wrapped its response
+                parts_json = response_text.split("```json")
+                parts_plain = response_text.split("```")
+                if len(parts_json) >= 2 and "```" in parts_json[1]:
+                    json_str = parts_json[1].split("```")[0].strip()
+                    classification = json.loads(json_str)
+                elif len(parts_plain) >= 3:
+                    json_str = parts_plain[1].strip()
+                    classification = json.loads(json_str)
+                else:
+                    raise ValueError(
+                        "Could not parse Ollama response as JSON "
+                        f"(tried raw and markdown-fenced formats): "
+                        f"{response_text[:100]}..."
+                    )
+
+            classification["ai_model"] = "ollama"
+
+            logger.info(
+                f"✅ Ollama result: {classification['intent']} ({classification['risk_level']})"
+            )
+            return classification
+
+        except Exception as e:
+            logger.error(f"❌ Ollama error: {e}")
+            logger.info("⚠️  Falling back to OpenAI or local NLP...")
+            if self.use_openai:
+                return self._classify_with_openai(user_input)
+            return self._classify_with_local_nlp(user_input)
+
     # ============================================================
     # OPENAI CLASSIFICATION (Sophisticated)
     # ============================================================
@@ -161,11 +294,13 @@ RISK LEVELS:
             try:
                 classification = json.loads(response_text)
             except json.JSONDecodeError:
-                if "```json" in response_text:
-                    json_str = response_text.split("```json")[1].split("```")[0].strip()
+                parts_json = response_text.split("```json")
+                parts_plain = response_text.split("```")
+                if len(parts_json) >= 2 and "```" in parts_json[1]:
+                    json_str = parts_json[1].split("```")[0].strip()
                     classification = json.loads(json_str)
-                elif "```" in response_text:
-                    json_str = response_text.split("```")[1].split("```")[0].strip()
+                elif len(parts_plain) >= 3:
+                    json_str = parts_plain[1].strip()
                     classification = json.loads(json_str)
                 else:
                     raise ValueError(f"Could not parse response: {response_text}")
