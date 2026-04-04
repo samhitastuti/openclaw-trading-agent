@@ -49,6 +49,16 @@ def test_caution_large_quantity(classifier):
     print("✅ Caution quantity test passed")
 
 
+def test_buy_2000_microsoft_is_safe(classifier):
+    """2000 shares is within the 2500-share policy limit and must not be flagged."""
+    result = classifier.classify("buy 2000 Microsoft")
+    assert result["risk_level"] == "safe", (
+        f"2000 shares is within the 2500 policy limit and should be 'safe', "
+        f"got '{result['risk_level']}'. risk_factors: {result['risk_factors']}"
+    )
+    print("✅ Buy 2000 Microsoft safe test passed")
+
+
 # HIGH-RISK INPUTS
 
 def test_high_risk_vague(classifier):
