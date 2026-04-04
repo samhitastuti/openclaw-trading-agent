@@ -7,7 +7,8 @@ Think of it as a semantic gateway that:
 2. Flags suspicious patterns early
 3. Provides confidence scores
 
-Three modes (priority order):
+Four modes (priority order):
+- OpenClaw: Local AI gateway (http://127.0.0.1:18789) using Kimi model
 - Ollama/Mistral: Free, locally-running AI (http://localhost:11434)
 - OpenAI: Semantic + sophisticated threat detection
 - Local NLP: Fast, deterministic, no API calls
@@ -24,6 +25,29 @@ from enum import Enum
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# ============================================================
+# OpenClaw configuration
+# ============================================================
+
+OPENCLAW_BASE_URL = os.getenv("OPENCLAW_BASE_URL", "http://127.0.0.1:18789")
+# The 'ollama/' prefix is required by the OpenClaw gateway to route the request
+# to the locally-running Ollama instance. See the OpenClaw gateway documentation.
+OPENCLAW_MODEL = os.getenv("OPENCLAW_MODEL", "ollama/kimi-k2.5:cloud")
+
+
+def _openclaw_is_available() -> bool:
+    """Return True if the OpenClaw gateway is reachable."""
+    try:
+        req = urllib.request.Request(
+            f"{OPENCLAW_BASE_URL}/v1/models",
+            headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
 
 # ============================================================
 # Ollama configuration
@@ -109,8 +133,22 @@ class IntentClassifier:
     """
     
     def __init__(self):
-        """Initialize classifier (auto-detects Ollama then OpenAI availability)"""
+        """Initialize classifier (auto-detects OpenClaw, then Ollama, then OpenAI)"""
         
+        # ---- OpenClaw ----
+        use_openclaw_env = os.getenv("USE_OPENCLAW", "auto").lower()
+        if use_openclaw_env == "true":
+            self.use_openclaw = True
+        elif use_openclaw_env == "false":
+            self.use_openclaw = False
+        else:  # "auto" – probe the server
+            self.use_openclaw = _openclaw_is_available()
+
+        if self.use_openclaw:
+            logger.info(
+                f"✅ IntentClassifier: Using OpenClaw ({OPENCLAW_MODEL}) at {OPENCLAW_BASE_URL}"
+            )
+
         # ---- Ollama ----
         use_ollama_env = os.getenv("USE_OLLAMA", "auto").lower()
         if use_ollama_env == "true":
@@ -120,7 +158,7 @@ class IntentClassifier:
         else:  # "auto" – probe the server
             self.use_ollama = _ollama_is_available()
 
-        if self.use_ollama:
+        if self.use_ollama and not self.use_openclaw:
             logger.info(
                 f"✅ IntentClassifier: Using Ollama ({OLLAMA_MODEL}) at {OLLAMA_BASE_URL}"
             )
@@ -137,17 +175,17 @@ class IntentClassifier:
             logger.info(f"✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo) with base_url={base_url or 'default'}")
         else:
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            if not self.use_ollama:
+            if not self.use_openclaw and not self.use_ollama:
                 logger.info("✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo)")
         
-        if not self.use_ollama and not self.use_openai:
+        if not self.use_openclaw and not self.use_ollama and not self.use_openai:
             logger.info("✅ IntentClassifier: Using Local NLP (regex + keywords)")
     
     def classify(self, user_input: str) -> Dict[str, Any]:
         """
         Main classification entry point.
         
-        Priority: Ollama > OpenAI > Local NLP
+        Priority: OpenClaw > Ollama > OpenAI > Local NLP
 
         Args:
             user_input: User's natural language command
@@ -156,13 +194,108 @@ class IntentClassifier:
             Classification result dict
         """
         
-        if self.use_ollama:
+        if self.use_openclaw:
+            return self._classify_with_openclaw(user_input)
+        elif self.use_ollama:
             return self._classify_with_ollama(user_input)
         elif self.use_openai:
             return self._classify_with_openai(user_input)
         else:
             return self._classify_with_local_nlp(user_input)
     
+    # ============================================================
+    # OPENCLAW CLASSIFICATION (Local AI Gateway – Kimi model)
+    # ============================================================
+
+    def _classify_with_openclaw(self, user_input: str) -> Dict[str, Any]:
+        """Use the OpenClaw local AI gateway (Kimi model) for classification.
+
+        OpenClaw exposes an OpenAI-compatible /v1/chat/completions endpoint.
+        """
+
+        logger.info(f"🦅 OpenClaw classification: {user_input[:60]}...")
+
+        system_prompt = (
+            "You are a financial intent classifier for an autonomous trading agent.\n"
+            "Your job: Analyze user input and return a JSON classification.\n\n"
+            "Return ONLY valid JSON (no markdown, no explanation):\n"
+            "{\n"
+            '    "intent": "buy_stock" | "sell_stock" | "analyze" | "check_balance" | "unknown",\n'
+            '    "risk_level": "safe" | "caution" | "high_risk" | "critical",\n'
+            '    "confidence": 0.0-1.0,\n'
+            '    "extracted_data": {\n'
+            '        "ticker": "AAPL" or null,\n'
+            '        "qty": 100 or null,\n'
+            '        "price": 150.50 or null,\n'
+            '        "action": "buy" | "sell" | "analyze" or null\n'
+            "    },\n"
+            '    "risk_factors": ["list", "of", "detected", "risks"],\n'
+            '    "reasoning": "explanation of classification"\n'
+            "}\n\n"
+            "RISK LEVELS:\n"
+            "- safe: Normal trading within bounds\n"
+            "- caution: Unusual but potentially valid\n"
+            "- high_risk: Multiple risk signals\n"
+            "- critical: DEFINITE adversarial pattern (credential exposure, bypass attempts, etc.)"
+        )
+
+        payload = json.dumps({
+            "model": OPENCLAW_MODEL,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Classify: {user_input}"},
+            ],
+            "stream": False,
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                f"{OPENCLAW_BASE_URL}/v1/chat/completions",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                response_body = resp.read().decode("utf-8")
+
+            response_json = json.loads(response_body)
+            response_text = response_json["choices"][0]["message"]["content"]
+
+            try:
+                classification = json.loads(response_text)
+            except json.JSONDecodeError:
+                # Strip markdown code fences if the model wrapped its response
+                parts_json = response_text.split("```json")
+                parts_plain = response_text.split("```")
+                if len(parts_json) >= 2 and "```" in parts_json[1]:
+                    json_str = parts_json[1].split("```")[0].strip()
+                    classification = json.loads(json_str)
+                elif len(parts_plain) >= 3:
+                    json_str = parts_plain[1].strip()
+                    classification = json.loads(json_str)
+                else:
+                    raise ValueError(
+                        "Could not parse OpenClaw response as JSON "
+                        f"(tried raw and markdown-fenced formats): "
+                        f"{response_text[:100]}..."
+                    )
+
+            classification["ai_model"] = "openclaw"
+
+            logger.info(
+                f"✅ OpenClaw result: {classification['intent']} ({classification['risk_level']})"
+            )
+            return classification
+
+        except Exception as e:
+            logger.error(f"❌ OpenClaw error: {e}")
+            logger.info("⚠️  Falling back to Ollama, OpenAI or local NLP...")
+            if self.use_ollama:
+                return self._classify_with_ollama(user_input)
+            if self.use_openai:
+                return self._classify_with_openai(user_input)
+            return self._classify_with_local_nlp(user_input)
+
     # ============================================================
     # OLLAMA CLASSIFICATION (Free local AI – Mistral)
     # ============================================================
