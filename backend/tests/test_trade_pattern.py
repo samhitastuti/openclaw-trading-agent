@@ -16,7 +16,7 @@ import re
 import pytest
 
 from backend.config.constants import TRADE_PATTERN
-from backend.intent.intent_parser import parse_intent
+from backend.intent.intent_parser import parse_intent, _resolve_ticker
 from backend.intent.intent_models import ActionSide, IntentType
 
 
@@ -125,3 +125,74 @@ def test_parse_intent_direct_ticker_with_price():
     assert intent.quantity == 5.0
     assert intent.side == ActionSide.SELL
     assert intent.price == 150.0
+
+
+# ─────────────────────────────────────────────
+# Company name → ticker mapping
+# ─────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("MICROSOFT", "MSFT"),
+        ("microsoft", "MSFT"),
+        ("Microsoft", "MSFT"),
+        ("APPLE", "AAPL"),
+        ("apple", "AAPL"),
+        ("NVIDIA", "NVDA"),
+        ("AMAZON", "AMZN"),
+        ("TESLA", "TSLA"),
+        ("MSFT", "MSFT"),   # canonical symbol passes through unchanged
+        ("AAPL", "AAPL"),
+    ],
+)
+def test_resolve_ticker_company_names(raw, expected):
+    """_resolve_ticker must map common company names to their ticker symbols."""
+    assert _resolve_ticker(raw) == expected
+
+
+# ─────────────────────────────────────────────
+# End-to-end: "BUY 240 MICROSOFT" scenario
+# ─────────────────────────────────────────────
+
+
+def test_buy_240_microsoft_pattern_matches():
+    """TRADE_PATTERN must match 'BUY 240 MICROSOFT' (company name, 9 chars)."""
+    match = _RE_TRADE.search("BUY 240 MICROSOFT")
+    assert match is not None, "Pattern did not match 'BUY 240 MICROSOFT'"
+    groups = match.groupdict()
+    assert groups["side"].lower() == "buy"
+    assert groups["quantity"] == "240"
+    assert groups["ticker"] == "MICROSOFT"
+
+
+def test_parse_intent_buy_240_microsoft():
+    """parse_intent must parse 'BUY 240 MICROSOFT' and map ticker to MSFT."""
+    intent = parse_intent("BUY 240 MICROSOFT", user_id="tester")
+    assert intent is not None, "parse_intent returned None for 'BUY 240 MICROSOFT'"
+    assert intent.type == IntentType.EXECUTE_TRADE
+    assert intent.side == ActionSide.BUY
+    assert intent.ticker == "MSFT"
+    assert intent.quantity == 240.0
+    assert intent.price is None  # market order
+
+
+@pytest.mark.parametrize(
+    "instruction,expected_ticker,expected_qty",
+    [
+        ("BUY 240 MICROSOFT", "MSFT", 240.0),
+        ("buy 100 Apple", "AAPL", 100.0),
+        ("sell 50 nvidia", "NVDA", 50.0),
+        ("BUY 10 AMAZON at 185", "AMZN", 10.0),
+        ("sell 5 TESLA at 200", "TSLA", 5.0),
+    ],
+)
+def test_parse_intent_company_name_inputs(instruction, expected_ticker, expected_qty):
+    """parse_intent must correctly handle full company names as the ticker."""
+    intent = parse_intent(instruction, user_id="tester")
+    assert intent is not None, f"parse_intent returned None for: {instruction!r}"
+    assert intent.ticker == expected_ticker, (
+        f"Expected ticker={expected_ticker!r}, got {intent.ticker!r} for {instruction!r}"
+    )
+    assert intent.quantity == expected_qty

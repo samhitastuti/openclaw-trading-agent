@@ -39,6 +39,44 @@ logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────
+# Company name → canonical ticker mapping
+#
+# Users often type the full company name instead of the exchange symbol.
+# This dict normalises those inputs so the rest of the pipeline always
+# works with standard ticker symbols (e.g. "MICROSOFT" → "MSFT").
+# Keys are lower-cased; the helper _resolve_ticker() handles the lookup.
+# ─────────────────────────────────────────────
+
+_COMPANY_TO_TICKER: dict[str, str] = {
+    "apple": "AAPL",
+    "microsoft": "MSFT",
+    "google": "GOOGL",
+    "alphabet": "GOOGL",
+    "amazon": "AMZN",
+    "meta": "META",
+    "facebook": "META",
+    "nvidia": "NVDA",
+    "tesla": "TSLA",
+    "netflix": "NFLX",
+    "paypal": "PYPL",
+    "adobe": "ADBE",
+    "salesforce": "CRM",
+    "oracle": "ORCL",
+    "intel": "INTC",
+}
+
+
+def _resolve_ticker(raw: str) -> str:
+    """Return the canonical ticker for *raw*.
+
+    If *raw* (case-insensitive) is a known company name it is mapped to the
+    corresponding exchange symbol; otherwise the uppercased value is returned
+    unchanged so that standard symbols like "MSFT" pass through unmodified.
+    """
+    return _COMPANY_TO_TICKER.get(raw.lower(), raw.upper())
+
+
+# ─────────────────────────────────────────────
 # Compiled Regex Cache
 # (Compiled once at import time for efficiency)
 # ─────────────────────────────────────────────
@@ -124,7 +162,7 @@ def _try_parse_trade(raw: str, user_id: str) -> Optional[Intent]:
     side_str = groups["side"].upper()
     side = ActionSide.BUY if side_str == "BUY" else ActionSide.SELL
 
-    ticker = groups["ticker"].upper()
+    ticker = _resolve_ticker(groups["ticker"])
 
     try:
         quantity = float(groups["quantity"])
@@ -165,7 +203,7 @@ def _try_parse_analyze(raw: str, user_id: str) -> Optional[Intent]:
     if not match:
         return None
 
-    ticker = match.group("ticker").upper()
+    ticker = _resolve_ticker(match.group("ticker"))
 
     return Intent(
         type=IntentType.ANALYZE,
@@ -196,7 +234,7 @@ def _try_parse_fetch(raw: str, user_id: str) -> Optional[Intent]:
     if raw_ticker is None:
         return None
 
-    ticker = raw_ticker.upper()
+    ticker = _resolve_ticker(raw_ticker)
 
     return Intent(
         type=IntentType.FETCH_DATA,
