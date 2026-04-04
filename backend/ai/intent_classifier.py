@@ -345,16 +345,17 @@ class IntentClassifier:
                 method="POST",
             )
             # ✅ INCREASED TIMEOUT - Ollama can be slow on first request
-            with urllib.request.urlopen(req, timeout=120) as resp:
+                       with urllib.request.urlopen(req, timeout=120) as resp:
                 response_body = resp.read().decode("utf-8")
 
-logger.info(f"📥 Ollama response: {resp.status}")
-response_json = json.loads(response_body)
-logger.info(f"📋 Full Ollama JSON response: {response_body[:500]}")  # Log raw response
-response_text = response_json.get("message", {}).get("content", "")
-logger.info(f"📝 Ollama content: {response_text}")
+            logger.info(f"📥 Ollama response: {resp.status}")
+            response_json = json.loads(response_body)
+            logger.info(f"📋 Full Ollama JSON response: {response_body[:500]}")  # Log raw response
+            response_text = response_json.get("message", {}).get("content", "")
+            logger.info(f"📝 Ollama content: {response_text}")
+            
             try:
-                classification = json.loads(response_text)
+                classification = json.loads(response_text))
             except json.JSONDecodeError:
                 # Strip markdown code fences if the model wrapped its response
                 parts_json = response_text.split("```json")
