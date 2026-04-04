@@ -54,6 +54,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# ← ADD THIS ENTIRE BLOCK
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 logger.info("🚀 Initializing FastAPI server...")
 
 # Initialize Alpaca client
