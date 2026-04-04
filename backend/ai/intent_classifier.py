@@ -174,7 +174,7 @@ class IntentClassifier:
             )
             logger.info(f"✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo) with base_url={base_url or 'default'}")
         else:
-            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            self.client = None
             if not self.use_openclaw and not self.use_ollama:
                 logger.info("✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo)")
         
@@ -299,79 +299,90 @@ class IntentClassifier:
     # ============================================================
     # OLLAMA CLASSIFICATION (Free local AI – Mistral)
     # ============================================================
-def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
-    """Use the local Ollama/Mistral model for classification (Chat API)."""
 
-    logger.info(f"🤖 Ollama classification: {user_input[:60]}...")
+    def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
+        """Use the local Ollama/Mistral model for classification (Chat API)."""
 
-    system_prompt = (
-        "You are a financial intent classifier for an autonomous trading agent.\n"
-        "Your job: Analyze user input and return a JSON classification.\n\n"
-        "Return ONLY valid JSON (no markdown, no explanation):\n"
-        "{\n"
-        '    "intent": "buy_stock" | "sell_stock" | "analyze" | "check_balance" | "unknown",\n'
-        '    "risk_level": "safe" | "caution" | "high_risk" | "critical",\n'
-        '    "confidence": 0.0-1.0,\n'
-        '    "extracted_data": {\n'
-        '        "ticker": "AAPL" or null,\n'
-        '        "qty": 100 or null,\n'
-        '        "price": 150.50 or null,\n'
-        '        "action": "buy" | "sell" | "analyze" or null\n'
-        "    },\n"
-        '    "risk_factors": ["list", "of", "detected", "risks"],\n'
-        '    "reasoning": "explanation of classification"\n'
-        "}\n\n"
-        "RISK LEVELS:\n"
-        "- safe: Normal trading within bounds\n"
-        "- caution: Unusual but potentially valid\n"
-        "- high_risk: Multiple risk signals\n"
-        "- critical: DEFINITE adversarial pattern (credential exposure, bypass attempts, etc.)"
-    )
+        logger.info(f"🤖 Ollama classification: {user_input[:60]}...")
 
-    try:
-        logger.info(f"📤 Sending to Ollama: {OLLAMA_BASE_URL}/api/chat")
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/api/chat",
-            json={
-                "model": OLLAMA_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Classify: {user_input}"},
-                ],
-                "stream": False,
-            },
-            timeout=120,
+        system_prompt = (
+            "You are a financial intent classifier for an autonomous trading agent.\n"
+            "Your job: Analyze user input and return a JSON classification.\n\n"
+            "Return ONLY valid JSON (no markdown, no explanation):\n"
+            "{\n"
+            '    "intent": "buy_stock" | "sell_stock" | "analyze" | "check_balance" | "unknown",\n'
+            '    "risk_level": "safe" | "caution" | "high_risk" | "critical",\n'
+            '    "confidence": 0.0-1.0,\n'
+            '    "extracted_data": {\n'
+            '        "ticker": "AAPL" or null,\n'
+            '        "qty": 100 or null,\n'
+            '        "price": 150.50 or null,\n'
+            '        "action": "buy" | "sell" | "analyze" or null\n'
+            "    },\n"
+            '    "risk_factors": ["list", "of", "detected", "risks"],\n'
+            '    "reasoning": "explanation of classification"\n'
+            "}\n\n"
+            "RISK LEVELS:\n"
+            "- safe: Normal trading within bounds\n"
+            "- caution: Unusual but potentially valid\n"
+            "- high_risk: Multiple risk signals\n"
+            "- critical: DEFINITE adversarial pattern (credential exposure, bypass attempts, etc.)"
         )
 
-        logger.info(f"📥 Ollama response: {response.status_code}")
-        if response.status_code != 200:
-            logger.error(f"❌ Ollama HTTP error: {response.status_code} - {response.text}")
-            raise Exception(f"Ollama error: {response.status_code}")
-
-        response_text = response.json().get("message", {}).get("content", "")
-        logger.info(f"📝 Ollama raw: {response_text}")
+        payload = json.dumps({
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Classify: {user_input}"},
+            ],
+            "stream": False,
+        }).encode("utf-8")
 
         try:
-            classification = json.loads(response_text)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse JSON directly, trying to extract...")
-            if "{" in response_text:
-                start = response_text.index("{")
-                end = response_text.rindex("}") + 1
-                json_str = response_text[start:end]
-                classification = json.loads(json_str)
-            else:
-                raise ValueError(f"Could not find JSON in: {response_text}")
+            logger.info(f"📤 Sending to Ollama: {OLLAMA_BASE_URL}/api/chat")
+            req = urllib.request.Request(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                response_body = resp.read().decode("utf-8")
 
-        classification["ai_model"] = "ollama"
-        logger.info(f"✅ Ollama result: {classification['intent']} ({classification['risk_level']})")
-        return classification
+            logger.info("📥 Ollama response received")
+            response_json = json.loads(response_body)
+            response_text = response_json["message"]["content"]
+            logger.info(f"📝 Ollama raw: {response_text}")
 
-    except Exception as e:
-        logger.error(f"❌ Ollama error: {e}", exc_info=True)
-        logger.info("⚠️  Falling back to Local NLP...")
-        return self._classify_with_local_nlp(user_input)
-  
+            try:
+                classification = json.loads(response_text)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse JSON directly, trying to extract...")
+                parts_json = response_text.split("```json")
+                parts_plain = response_text.split("```")
+                if len(parts_json) >= 2 and "```" in parts_json[1]:
+                    json_str = parts_json[1].split("```")[0].strip()
+                    classification = json.loads(json_str)
+                elif len(parts_plain) >= 3:
+                    json_str = parts_plain[1].strip()
+                    classification = json.loads(json_str)
+                elif "{" in response_text:
+                    start = response_text.index("{")
+                    end = response_text.rindex("}") + 1
+                    json_str = response_text[start:end]
+                    classification = json.loads(json_str)
+                else:
+                    raise ValueError(f"Could not find JSON in: {response_text}")
+
+            classification["ai_model"] = "ollama"
+            logger.info(f"✅ Ollama result: {classification['intent']} ({classification['risk_level']})")
+            return classification
+
+        except Exception as e:
+            logger.error(f"❌ Ollama error: {e}", exc_info=True)
+            logger.info("⚠️  Falling back to Local NLP...")
+            return self._classify_with_local_nlp(user_input)
+
     # ============================================================
     # OPENAI CLASSIFICATION (Sophisticated)
     # ============================================================
