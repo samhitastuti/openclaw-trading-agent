@@ -40,11 +40,11 @@ def _ollama_is_available() -> bool:
             f"{OLLAMA_BASE_URL}/api/tags",
             headers={"Accept": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=2) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # ← Changed from 2 to 5
             return resp.status == 200
-    except Exception:
+    except Exception as e:
+        logger.warning(f"⚠️ Ollama probe failed: {e}")  # ← Add logging
         return False
-
 
 # ============================================================
 # Module-level constants for local NLP extraction
