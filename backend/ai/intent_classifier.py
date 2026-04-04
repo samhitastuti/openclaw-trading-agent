@@ -24,6 +24,8 @@ from typing import Dict, Any
 from enum import Enum
 from datetime import datetime
 
+from backend.layer2_enforcement.policy_models import get_trade_policy
+
 logger = logging.getLogger(__name__)
 
 # ============================================================
@@ -496,12 +498,15 @@ RISK LEVELS:
         # ========================================
         # STEP 3: DETECT UNUSUAL QUANTITIES
         # ========================================
-        
+
+        trade_policy = get_trade_policy()
+        max_shares = trade_policy.get("max_shares_per_order", 2500)
+
         numbers = re.findall(r'\d+', user_input)
         if numbers:
             for num_str in numbers:
                 num = int(num_str)
-                if num > 1000:
+                if num > max_shares:
                     result["risk_factors"].append(f"Unusually large quantity: {num}")
                     if result["risk_level"] == "safe":
                         result["risk_level"] = "caution"
