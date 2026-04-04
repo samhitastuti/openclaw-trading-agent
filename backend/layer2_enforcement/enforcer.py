@@ -56,7 +56,8 @@ class PolicyEnforcer:
     1. AI risk threshold
     2. Prohibited / suspicious patterns
     3. Ticker whitelist  (trade intents only)
-    4. Per-order value limit  (trade intents only)
+    4. Max shares per order  (trade intents only)
+    5. Per-order value limit  (trade intents only)
 
     Usage::
 
@@ -169,11 +170,36 @@ class PolicyEnforcer:
         else:
             constraints_checked.append("ticker_check: PASSED (no whitelist)")
 
-        # ── 5. Per-order value limit ──────────────────────────────────
+        # ── 5. Max shares per order ───────────────────────────────────
+        max_shares: float = float(
+            trade_policy.get("max_shares_per_order", float("inf"))
+        )
+        quantity: float = parsed_intent.quantity
+
+        logger.debug(
+            "max_shares_check: quantity=%s, max_shares_per_order=%s",
+            quantity,
+            max_shares,
+        )
+
+        if quantity > max_shares:
+            constraints_checked.append(
+                f"max_shares_check: FAILED ({quantity:.0f} > limit {max_shares:.0f})"
+            )
+            return PolicyDecision(
+                allowed=False,
+                reason="Exceeds maximum shares per order",
+                constraints_checked=constraints_checked,
+            )
+
+        constraints_checked.append(
+            f"max_shares_check: PASSED ({quantity:.0f} <= limit {max_shares:.0f})"
+        )
+
+        # ── 6. Per-order value limit ──────────────────────────────────
         per_order_limit: float = float(
             trade_policy.get("per_order_value_limit", float("inf"))
         )
-        quantity: float = parsed_intent.quantity
         price: float = parsed_intent.price or 0.0
         order_value: float = quantity * price
 

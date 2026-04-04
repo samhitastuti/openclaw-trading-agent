@@ -1,6 +1,7 @@
 trade_policy:
   max_order_value: 10000
   per_order_value_limit: 10000
+  max_shares_per_order: 2500
   # APPL is included alongside AAPL to handle common user typos for Apple stock
   # allowed_tickers: ["MSFT", "AAPL", "APPL", "GOOGL", "AMZN", "NVDA"]
   ai_risk_threshold: 0.8
