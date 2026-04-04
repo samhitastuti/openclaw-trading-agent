@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from backend.api.schemas import (  # noqa: F401 – re-exported for backwards compat
