@@ -298,65 +298,65 @@ class IntentClassifier:
     # OLLAMA CLASSIFICATION (Free local AI – Mistral)
     # ============================================================
 
-     def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
-    """Use the local Ollama/Mistral model for classification."""
+    def _classify_with_ollama(self, user_input: str) -> Dict[str, Any]:
+        """Use the local Ollama/Mistral model for classification."""
 
-    logger.info(f"🦙 Ollama classification: {user_input[:60]}...")
+        logger.info(f"🦙 Ollama classification: {user_input[:60]}...")
 
-    system_prompt = (
-        "You MUST return ONLY a JSON object (no markdown, no explanation, no other text):\n"
-        "{\n"
-        '  "intent": "buy_stock" | "sell_stock" | "analyze" | "check_balance" | "unknown",\n'
-        '  "risk_level": "safe" | "caution" | "high_risk" | "critical",\n'
-        '  "confidence": 0.8,\n'
-        '  "extracted_data": {"ticker": "MSFT" or null, "qty": 100 or null, "price": null, "action": "buy" or null},\n'
-        '  "risk_factors": [],\n'
-        '  "reasoning": "User wants to buy stock"\n'
-        "}"
-    )
-
-    payload = json.dumps({
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Classify this trading instruction: {user_input}"},
-        ],
-        "stream": False,
-    }).encode("utf-8")
-
-    try:
-        logger.info(f"📤 Sending to Ollama: {OLLAMA_BASE_URL}/api/chat")
-        req = urllib.request.Request(
-            f"{OLLAMA_BASE_URL}/api/chat",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        system_prompt = (
+            "You MUST return ONLY a JSON object (no markdown, no explanation, no other text):\n"
+            "{\n"
+            '  "intent": "buy_stock" | "sell_stock" | "analyze" | "check_balance" | "unknown",\n'
+            '  "risk_level": "safe" | "caution" | "high_risk" | "critical",\n'
+            '  "confidence": 0.8,\n'
+            '  "extracted_data": {"ticker": "MSFT" or null, "qty": 100 or null, "price": null, "action": "buy" or null},\n'
+            '  "risk_factors": [],\n'
+            '  "reasoning": "User wants to buy stock"\n'
+            "}"
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            response_body = resp.read().decode("utf-8")
 
-        response_json = json.loads(response_body)
-        raw_content = response_json.get("message", {}).get("content", "").strip()
-        logger.info(f"📥 Ollama response status: 200")
-        logger.info(f"📋 Raw content: {raw_content[:200]}")
+        payload = json.dumps({
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Classify this trading instruction: {user_input}"},
+            ],
+            "stream": False,
+        }).encode("utf-8")
 
-        # Extract JSON from the response (handle cases where it's wrapped in text)
-        if "{" in raw_content:
-            start = raw_content.index("{")
-            end = raw_content.rindex("}") + 1
-            json_str = raw_content[start:end]
-            classification = json.loads(json_str)
-        else:
-            raise ValueError(f"No JSON found in response: {raw_content}")
+        try:
+            logger.info(f"📤 Sending to Ollama: {OLLAMA_BASE_URL}/api/chat")
+            req = urllib.request.Request(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                response_body = resp.read().decode("utf-8")
 
-        classification["ai_model"] = "ollama"
-        logger.info(f"✅ Ollama result: {classification.get('intent')} ({classification.get('risk_level')})")
-        return classification
+            response_json = json.loads(response_body)
+            raw_content = response_json.get("message", {}).get("content", "").strip()
+            logger.info(f"📥 Ollama response status: 200")
+            logger.info(f"📋 Raw content: {raw_content[:200]}")
 
-    except Exception as e:
-        logger.error(f"❌ Ollama error: {e}", exc_info=True)
-        logger.info("⚠️  Falling back to local NLP...")
-        return self._classify_with_local_nlp(user_input)
+            # Extract JSON from the response (handle cases where it's wrapped in text)
+            if "{" in raw_content:
+                start = raw_content.index("{")
+                end = raw_content.rindex("}") + 1
+                json_str = raw_content[start:end]
+                classification = json.loads(json_str)
+            else:
+                raise ValueError(f"No JSON found in response: {raw_content}")
+
+            classification["ai_model"] = "ollama"
+            logger.info(f"✅ Ollama result: {classification.get('intent')} ({classification.get('risk_level')})")
+            return classification
+
+        except Exception as e:
+            logger.error(f"❌ Ollama error: {e}", exc_info=True)
+            logger.info("⚠️  Falling back to local NLP...")
+            return self._classify_with_local_nlp(user_input)
 
     # ============================================================
     # OPENAI CLASSIFICATION (Sophisticated)
