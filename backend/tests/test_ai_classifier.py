@@ -143,6 +143,15 @@ def test_extract_price_with_dollar_sign(classifier):
     print("✅ Price extraction test passed")
 
 
+def test_extract_long_ticker_niftybees(classifier):
+    """Ticker symbols longer than 5 chars (e.g. NIFTYBEES, 9 chars) must be recognised"""
+    result = classifier.classify("buy 1000 niftybees")
+    data = result["extracted_data"]
+    assert data.get("ticker") == "NIFTYBEES", f"Expected NIFTYBEES, got {data.get('ticker')}"
+    assert data.get("qty") == 1000.0
+    print("✅ Long ticker (NIFTYBEES) extraction test passed")
+
+
 # ============================================================
 # OPENCLAW INTEGRATION TESTS
 # ============================================================
