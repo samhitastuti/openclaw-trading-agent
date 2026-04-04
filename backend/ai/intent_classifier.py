@@ -90,8 +90,12 @@ class IntentClassifier:
         self.use_openai = OPENAI_AVAILABLE and os.getenv("OPENAI_API_KEY")
         
         if self.use_openai:
-            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            logger.info("✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo)")
+            base_url = os.getenv("OPENAI_BASE_URL")
+            self.client = OpenAI(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                base_url=base_url
+            )
+            logger.info(f"✅ IntentClassifier: Using OpenAI (gpt-3.5-turbo) with base_url={base_url or 'default'}")
         else:
             logger.info("✅ IntentClassifier: Using Local NLP (regex + keywords)")
     

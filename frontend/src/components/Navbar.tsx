@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 
 const Navbar = () => {
-  const { theme, toggleTheme, user } = useAppContext();
+  const { theme, toggleTheme, user, logout } = useAppContext();
   const location = useLocation();
 
   const navLinks = [
@@ -61,7 +61,18 @@ const Navbar = () => {
           {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
         </button>
         {user ? (
-          <span className="text-sm font-medium text-[var(--muted)]">{user.email}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-[var(--muted)] hidden sm:inline max-w-[160px] truncate" title={user.email}>
+              {user.full_name || user.email}
+            </span>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              Log out
+            </button>
+          </div>
         ) : (
           <MotionLink
             to="/login"

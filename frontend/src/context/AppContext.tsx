@@ -1,14 +1,25 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { LogEntry } from '../types';
 
+const AUTH_TOKEN_KEY = 'veridict_token';
+const AUTH_USER_KEY = 'veridict_user';
+
+export interface SessionUser {
+  id: number;
+  email: string;
+  full_name: string;
+}
+
 interface AppContextType {
   theme: string;
   toggleTheme: () => void;
   auditLogs: LogEntry[];
   addLog: (log: LogEntry) => void;
   clearLogs: () => void;
-  user: { email: string } | null;
-  setUser: (user: { email: string } | null) => void;
+  user: SessionUser | null;
+  authToken: string | null;
+  setSession: (user: SessionUser | null, token: string | null) => void;
+  logout: () => void;
   exportLogs: (format: 'csv' | 'json') => void;
 }
 
@@ -20,7 +31,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('audit_logs');
     return saved ? JSON.parse(saved) : [];
   });
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(() => {
+    try {
+      const raw = localStorage.getItem(AUTH_USER_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<SessionUser>;
+      if (
+        parsed &&
+        typeof parsed.email === 'string' &&
+        typeof parsed.id === 'number' &&
+        typeof parsed.full_name === 'string'
+      ) {
+        return parsed as SessionUser;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  });
+  const [authToken, setAuthToken] = useState<string | null>(() =>
+    localStorage.getItem(AUTH_TOKEN_KEY)
+  );
+
+  const setSession = (nextUser: SessionUser | null, token: string | null) => {
+    setUser(nextUser);
+    setAuthToken(token);
+    if (nextUser && token) {
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser));
+      localStorage.setItem(AUTH_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(AUTH_USER_KEY);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
+  };
+
+  const logout = () => setSession(null, null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -90,7 +135,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addLog, 
       clearLogs,
       user, 
-      setUser,
+      authToken,
+      setSession,
+      logout,
       exportLogs
     }}>
       {children}

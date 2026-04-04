@@ -10,9 +10,14 @@ def validate_trade(action):
 
     value = qty * price
 
-    # Ticker restriction
-    if ticker not in policy.get("allowed_tickers", []):
-        return False, f"Ticker '{ticker}' not allowed"
+    # Ticker restriction — empty / missing allowed_tickers means no symbol cap
+    raw_allowed = policy.get("allowed_tickers") or []
+    allowed = raw_allowed if isinstance(raw_allowed, list) else []
+    if allowed:
+        allowed_u = {str(t).upper() for t in allowed}
+        tk = (ticker or "").upper()
+        if tk not in allowed_u:
+            return False, f"Ticker '{ticker}' not allowed"
 
     # Max trade limit
     if value > policy.get("max_order_value", 0):

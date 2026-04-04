@@ -17,6 +17,10 @@ venv/
 .pytest_cache/
 .coverage
 
+# SQLite user database (Veridict auth)
+*.db
+backend/data/*.db
+
 # Outputs
 outputs/
 audit_trail.jsonl

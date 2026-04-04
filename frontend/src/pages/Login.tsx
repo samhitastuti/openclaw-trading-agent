@@ -3,18 +3,28 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Shield, Mail, Lock, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { loginAccount } from '../api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { setUser } = useAppContext();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { setSession } = useAppContext();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && password) {
-      setUser({ email });
+    setError('');
+    setLoading(true);
+    try {
+      const res = await loginAccount(email, password);
+      setSession(res.user, res.access_token);
       navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign in failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -34,6 +44,12 @@ const Login = () => {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
+          {error ? (
+            <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2" role="alert">
+              {error}
+            </p>
+          ) : null}
+
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-widest text-[var(--muted)] ml-1">Email Address</label>
             <div className="relative">
@@ -44,6 +60,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
+                autoComplete="email"
                 className="w-full pl-11 pr-4 py-3 rounded-xl bg-[var(--background)] border border-[var(--border)] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -59,6 +76,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 className="w-full pl-11 pr-4 py-3 rounded-xl bg-[var(--background)] border border-[var(--border)] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -66,9 +84,12 @@ const Login = () => {
 
           <button 
             type="submit"
-            className="w-full py-4 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98]"
+            disabled={loading}
+            className="w-full py-4 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
           >
-            Sign In <ArrowRight className="w-4 h-4" />
+            {loading ? 'Signing in…' : (
+              <>Sign In <ArrowRight className="w-4 h-4" /></>
+            )}
           </button>
         </form>
 

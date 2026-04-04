@@ -5,6 +5,7 @@ FastAPI Server - Main HTTP API for OpenClaw Trading Agent
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -42,17 +43,30 @@ from backend.intent.intent_parser import parse_intent
 from backend.layer1_reasoning.classifier import IntentClassifier
 from backend.layer2_enforcement.enforcer import PolicyEnforcer
 from backend.logging.audit_logger import log_trade_decision
+from backend.database.db import init_db
+from backend.api.auth import router as auth_router
 
 
 # ===============================================
 # INITIALIZE APP & COMPONENTS
 # ===============================================
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    logging.getLogger(__name__).info("✅ Auth database initialized (SQLite)")
+    yield
+
+
 app = FastAPI(
     title="OpenClaw Trading Agent",
     description="Autonomous trading with ArmorClaw enforcement",
     version="1.0.0",
+    lifespan=lifespan,
 )
+
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 # ← ADD THIS ENTIRE BLOCK
 app.add_middleware(

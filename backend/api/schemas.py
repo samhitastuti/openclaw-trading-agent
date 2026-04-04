@@ -189,3 +189,31 @@ class AuditEntry(BaseModel):
         description="Block reason (only set when decision='BLOCKED')",
     )
     user_id: str
+
+
+# ─────────────────────────────────────────────
+# Auth (Veridict login / sign-up)
+# ─────────────────────────────────────────────
+
+
+class AuthRegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=200)
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class AuthLoginRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+class AuthUserOut(BaseModel):
+    id: int
+    email: str
+    full_name: str
+
+
+class AuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: AuthUserOut

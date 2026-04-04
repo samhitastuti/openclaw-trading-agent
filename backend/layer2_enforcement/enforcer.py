@@ -11,10 +11,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from backend.config.constants import SUSPICIOUS_KEYWORDS
-from backend.layer2_enforcement.policy_models import (
-    get_adversarial_policy,
-    get_trade_policy,
-)
+from backend.layer2_enforcement.policy_models import get_trade_policy
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +66,6 @@ class PolicyEnforcer:
     """
 
     def __init__(self) -> None:
-        self._trade_policy = get_trade_policy()
-        self._adversarial_policy = get_adversarial_policy()
         logger.info("✅ PolicyEnforcer initialized")
 
     # ------------------------------------------------------------------
@@ -89,10 +84,11 @@ class PolicyEnforcer:
             PolicyDecision with allowed flag, reason, and constraints checked.
         """
         constraints_checked: List[str] = []
+        trade_policy = get_trade_policy()
 
         # ── 1. AI risk threshold ──────────────────────────────────────
         ai_risk_threshold: float = float(
-            self._trade_policy.get("ai_risk_threshold", 0.8)
+            trade_policy.get("ai_risk_threshold", 0.8)
         )
         risk_level: str = (classification.risk_level or "safe").lower()
         risk_score: float = _RISK_ORDER.get(risk_level, 0.0)
@@ -130,21 +126,34 @@ class PolicyEnforcer:
 
         constraints_checked.append("prohibited_pattern_check: PASSED")
 
-        # ── 3. If no parsed intent or not a trade, skip remaining ─────
-        if parsed_intent is None or not parsed_intent.is_trade():
+        # ── 3. Return blocked if intent could not be parsed ───────────
+        if parsed_intent is None:
+            return PolicyDecision(
+                allowed=False,
+                reason="Unrecognized intent or request could not be parsed.",
+                constraints_checked=constraints_checked,
+            )
+
+        # ── 3b. If not a trade, skip remaining ────────────────────────
+        if not parsed_intent.is_trade():
             return PolicyDecision(
                 allowed=True,
                 reason="Non-trade request passed all risk checks",
                 constraints_checked=constraints_checked,
             )
 
-        # ── 4. Ticker whitelist ───────────────────────────────────────
-        allowed_tickers: List[str] = self._trade_policy.get("allowed_tickers", [])
+        # ── 4. Ticker whitelist (omit or empty allowed_tickers = any symbol) ──
+        raw_allowed = trade_policy.get("allowed_tickers") or []
+        allowed_tickers: List[str] = (
+            raw_allowed if isinstance(raw_allowed, list) else []
+        )
         ticker: str = parsed_intent.ticker
+        ticker_u = (ticker or "").upper()
+        allowed_set = {str(t).upper() for t in allowed_tickers}
 
         constraints_checked.append(f"ticker_check: {ticker}")
 
-        if allowed_tickers and ticker not in allowed_tickers:
+        if allowed_tickers and ticker_u not in allowed_set:
             return PolicyDecision(
                 allowed=False,
                 reason=(
@@ -153,11 +162,16 @@ class PolicyEnforcer:
                 constraints_checked=constraints_checked,
             )
 
-        constraints_checked.append(f"ticker_check: PASSED ({ticker} whitelisted)")
+        if allowed_tickers:
+            constraints_checked.append(
+                f"ticker_check: PASSED ({ticker} on whitelist)"
+            )
+        else:
+            constraints_checked.append("ticker_check: PASSED (no whitelist)")
 
         # ── 5. Per-order value limit ──────────────────────────────────
         per_order_limit: float = float(
-            self._trade_policy.get("per_order_value_limit", float("inf"))
+            trade_policy.get("per_order_value_limit", float("inf"))
         )
         quantity: float = parsed_intent.quantity
         price: float = parsed_intent.price or 0.0
@@ -180,10 +194,15 @@ class PolicyEnforcer:
         constraints_checked.append("order_value_check: PASSED")
 
         # ── All checks passed ─────────────────────────────────────────
+        ticker_msg = (
+            f"ticker '{ticker}' on whitelist"
+            if allowed_tickers
+            else f"ticker '{ticker}' allowed (no whitelist configured)"
+        )
         return PolicyDecision(
             allowed=True,
             reason=(
-                f"All policy checks passed: ticker '{ticker}' whitelisted, "
+                f"All policy checks passed: {ticker_msg}, "
                 f"risk '{risk_level}' within threshold"
             ),
             constraints_checked=constraints_checked,

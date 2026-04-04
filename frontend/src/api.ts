@@ -72,3 +72,60 @@ export async function getAuditTrail(): Promise<any> {
   const response = await fetch(`${API_URL}/api/audit/decisions`);
   return response.json();
 }
+
+// ─── Veridict auth (SQLite-backed API) ─────────────────────────────────
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  full_name: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+function errorMessageFromBody(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback;
+  const d = data as { detail?: unknown };
+  const detail = d.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((x) => (typeof x === 'object' && x && 'msg' in x ? String((x as { msg: string }).msg) : String(x)))
+      .join(', ');
+  }
+  return fallback;
+}
+
+export async function registerAccount(
+  full_name: string,
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ full_name, email, password }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(errorMessageFromBody(data, 'Registration failed'));
+  }
+  return data as AuthResponse;
+}
+
+export async function loginAccount(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(errorMessageFromBody(data, 'Login failed'));
+  }
+  return data as AuthResponse;
+}
