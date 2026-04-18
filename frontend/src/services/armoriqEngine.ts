@@ -14,13 +14,22 @@ export const evaluateIntent = async (input: string): Promise<EvaluationResult> =
 
   const data = await response.json();
 
-  // Map backend status to frontend DecisionStatus
+  // Map backend status to frontend DecisionStatus.
+  // A "success" response with a caution/high_risk/critical AI classification
+  // surfaces as WARNING so users see elevated risk even when the policy allows
+  // the trade through.
   const backendStatus = (data.status || '').toLowerCase();
+  const riskLevel = (data.ai_classification?.risk_level || 'safe').toLowerCase();
   let status: DecisionStatus;
-  if (backendStatus === 'success') {
-    status = 'ALLOWED';
-  } else if (backendStatus === 'blocked') {
+  if (backendStatus === 'blocked') {
     status = 'BLOCKED';
+  } else if (
+    backendStatus === 'success' &&
+    (riskLevel === 'caution' || riskLevel === 'high_risk' || riskLevel === 'critical')
+  ) {
+    status = 'WARNING';
+  } else if (backendStatus === 'success') {
+    status = 'ALLOWED';
   } else {
     status = 'WARNING';
   }
